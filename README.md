@@ -14,8 +14,6 @@ An UET AdvProg Project
 
 - arial.ttf  https://digital-media.fao.org/archive/-2A6XC5USY4QA.html
 
-- Please change the tff file's name to arial to properly run the game
-
-* Install these libraries and font, add them in your c++ compiler and press build and run
+* Install these libraries and font, add them in your c++ compiler, the dll file to the same file as the game exe file and press build and run
 
 Hope you enjoy the game ^^
