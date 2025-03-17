@@ -10,6 +10,8 @@ An UET AdvProg Project
 
 - SDL2_ttf-2.24.0  https://github.com/libsdl-org/SDL_ttf/releases/download/release-2.24.0/SDL2_ttf-devel-2.24.0-mingw.zip
 
+- SDL2_image-2.5.2  https://github.com/libsdl-org/SDL_image/releases/download/prerelease-2.5.2/SDL2_image-devel-2.5.2-mingw.zip
+
 * Font I used: 
 
 - arial.ttf  https://digital-media.fao.org/archive/-2A6XC5USY4QA.html
