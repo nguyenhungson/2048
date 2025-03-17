@@ -6,19 +6,51 @@
 #include <ctime>
 #include <string>
 #include <map>
+#include <fstream>  // For persistent highscore
 
-// Constants for window, grid and tile size
-const int WINDOW_WIDTH = 400;
+// Constants for game area and sidebar
+const int GAME_AREA_WIDTH = 400;
+const int SIDEBAR_WIDTH = 200;
+const int WINDOW_WIDTH = GAME_AREA_WIDTH + SIDEBAR_WIDTH; // 600
 const int WINDOW_HEIGHT = 400;
 const int GRID_SIZE = 4;
-const int TILE_SIZE = WINDOW_WIDTH / GRID_SIZE;
+const int TILE_SIZE = GAME_AREA_WIDTH / GRID_SIZE; // 100
 
 // Global game state variables
 int grid[GRID_SIZE][GRID_SIZE] = {0};
 bool gameStarted = false;
 bool gameOver = false;
+bool showHelp = false; // Whether to display the help screen
 std::map<int, SDL_Texture*> fruitTextures;
+int score = 0;
+int highscore = 0;
 
+// Load the highscore from a file
+void loadHighscore() {
+    std::ifstream infile("highscore.txt");
+    if (infile.is_open()) {
+        infile >> highscore;
+        infile.close();
+    } else {
+        highscore = 0;
+    }
+}
+
+// Save the highscore to a file
+void saveHighscore() {
+    std::ofstream outfile("highscore.txt");
+    if (outfile.is_open()) {
+        outfile << highscore;
+        outfile.close();
+    }
+}
+
+// Dummy function for file verification (update if needed)
+void verifyFiles() {
+
+}
+
+// Texture loading for fruit images
 void loadTextures(SDL_Renderer* renderer) {
     std::string fruitNames[] = {"apple", "banana", "dragonfruit", "grape", "mango", "orange", "peach", "pineapple", "pomegranate", "strawberry", "watermelon"};
     int values[] = {2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048};
@@ -33,57 +65,6 @@ void loadTextures(SDL_Renderer* renderer) {
         SDL_FreeSurface(surface);
     }
 }
-
-void draw_grid(SDL_Renderer* renderer) {
-    // Clear background
-    SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
-    SDL_RenderClear(renderer);
-
-    // Loop through rows and columns
-    for (int i = 0; i < GRID_SIZE; i++) {
-        for (int j = 0; j < GRID_SIZE; j++) {
-            int value = grid[i][j];
-
-            // Draw tile background
-            SDL_Rect rect = {j * TILE_SIZE, i * TILE_SIZE, TILE_SIZE, TILE_SIZE};
-            SDL_SetRenderDrawColor(renderer, 205, 193, 180, 255);
-            SDL_RenderFillRect(renderer, &rect);
-
-            // Draw tile outline
-            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-            SDL_RenderDrawRect(renderer, &rect);
-
-            // Draw fruit image if available for the tile value
-            if (value != 0 && fruitTextures.count(value)) {
-                SDL_Texture* tex = fruitTextures[value];
-                int texWidth, texHeight;
-                SDL_QueryTexture(tex, NULL, NULL, &texWidth, &texHeight);
-
-                // Preserve aspect ratio by computing a scale factor
-                float ratioW = static_cast<float>(TILE_SIZE) / texWidth;
-                float ratioH = static_cast<float>(TILE_SIZE) / texHeight;
-                float ratio = (ratioW < ratioH) ? ratioW : ratioH;
-
-                // Final scaled width and height
-                int finalW = static_cast<int>(texWidth * ratio);
-                int finalH = static_cast<int>(texHeight * ratio);
-
-                // Center the image in the tile
-                SDL_Rect destRect = {
-                    rect.x + (TILE_SIZE - finalW) / 2,
-                    rect.y + (TILE_SIZE - finalH) / 2,
-                    finalW,
-                    finalH
-                };
-
-                // Render the scaled texture
-                SDL_RenderCopy(renderer, tex, NULL, &destRect);
-            }
-        }
-    }
-    SDL_RenderPresent(renderer);
-}
-
 
 void draw_start_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font* smallFont) {
     SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
@@ -131,13 +112,184 @@ void draw_game_over_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font
     SDL_RenderPresent(renderer);
 }
 
+// Draw the sidebar with score and highscore, plus the clickable Help button
+void draw_sidebar(SDL_Renderer* renderer, TTF_Font* font) {
+    SDL_Rect sidebarRect = {GAME_AREA_WIDTH, 0, SIDEBAR_WIDTH, WINDOW_HEIGHT};
+    SDL_SetRenderDrawColor(renderer, 150, 150, 150, 255); // Gray background
+    SDL_RenderFillRect(renderer, &sidebarRect);
+
+    SDL_Color textColor = {0, 0, 0, 255};
+
+    // Render score text
+    std::string scoreText = "Score: " + std::to_string(score);
+    SDL_Surface* scoreSurface = TTF_RenderText_Solid(font, scoreText.c_str(), textColor);
+    SDL_Texture* scoreTexture = SDL_CreateTextureFromSurface(renderer, scoreSurface);
+    SDL_Rect scoreRect = {GAME_AREA_WIDTH + 10, 50, scoreSurface->w, scoreSurface->h};
+    SDL_FreeSurface(scoreSurface);
+    SDL_RenderCopy(renderer, scoreTexture, NULL, &scoreRect);
+    SDL_DestroyTexture(scoreTexture);
+
+    // Render highscore text
+    std::string highscoreText = "Highscore: " + std::to_string(highscore);
+    SDL_Surface* highSurface = TTF_RenderText_Solid(font, highscoreText.c_str(), textColor);
+    SDL_Texture* highTexture = SDL_CreateTextureFromSurface(renderer, highSurface);
+    SDL_Rect highRect = {GAME_AREA_WIDTH + 10, 100, highSurface->w, highSurface->h};
+    SDL_FreeSurface(highSurface);
+    SDL_RenderCopy(renderer, highTexture, NULL, &highRect);
+    SDL_DestroyTexture(highTexture);
+
+    // Draw the Help Button
+    SDL_Rect helpButtonRect = {GAME_AREA_WIDTH + 10, WINDOW_HEIGHT - 60, SIDEBAR_WIDTH - 20, 50};
+    SDL_SetRenderDrawColor(renderer, 100, 100, 250, 255); // Blue button
+    SDL_RenderFillRect(renderer, &helpButtonRect);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // Button border
+    SDL_RenderDrawRect(renderer, &helpButtonRect);
+
+    // Render "Help" text on the button
+    std::string helpText = "Help";
+    SDL_Color white = {255, 255, 255, 255};
+    SDL_Surface* helpSurface = TTF_RenderText_Solid(font, helpText.c_str(), white);
+    if (helpSurface) {
+        SDL_Texture* helpTexture = SDL_CreateTextureFromSurface(renderer, helpSurface);
+        SDL_Rect textRect = {
+            helpButtonRect.x + (helpButtonRect.w - helpSurface->w) / 2,
+            helpButtonRect.y + (helpButtonRect.h - helpSurface->h) / 2,
+            helpSurface->w, helpSurface->h
+        };
+        SDL_FreeSurface(helpSurface);
+        SDL_RenderCopy(renderer, helpTexture, NULL, &textRect);
+        SDL_DestroyTexture(helpTexture);
+    }
+}
+
+// Draw game grid (left area) and sidebar
+void draw_grid(SDL_Renderer* renderer, TTF_Font* font) {
+    // Clear the entire window
+    SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
+    SDL_RenderClear(renderer);
+
+    // Draw the game grid in the game area (left side)
+    for (int i = 0; i < GRID_SIZE; i++) {
+        for (int j = 0; j < GRID_SIZE; j++) {
+            int value = grid[i][j];
+            SDL_Rect rect = {j * TILE_SIZE, i * TILE_SIZE, TILE_SIZE, TILE_SIZE};
+            SDL_SetRenderDrawColor(renderer, 205, 193, 180, 255);
+            SDL_RenderFillRect(renderer, &rect);
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            SDL_RenderDrawRect(renderer, &rect);
+
+            // Draw fruit image if available for the tile value
+            if (value != 0 && fruitTextures.count(value)) {
+                SDL_Texture* tex = fruitTextures[value];
+                int texWidth, texHeight;
+                SDL_QueryTexture(tex, NULL, NULL, &texWidth, &texHeight);
+                float ratioW = static_cast<float>(TILE_SIZE) / texWidth;
+                float ratioH = static_cast<float>(TILE_SIZE) / texHeight;
+                float ratio = (ratioW < ratioH) ? ratioW : ratioH;
+                int finalW = static_cast<int>(texWidth * ratio);
+                int finalH = static_cast<int>(texHeight * ratio);
+                SDL_Rect destRect = {
+                    rect.x + (TILE_SIZE - finalW) / 2,
+                    rect.y + (TILE_SIZE - finalH) / 2,
+                    finalW,
+                    finalH
+                };
+                SDL_RenderCopy(renderer, tex, NULL, &destRect);
+            }
+        }
+    }
+    // Draw the sidebar with score information
+    draw_sidebar(renderer, font);
+    SDL_RenderPresent(renderer);
+}
+
+// Draw the Help screen with instructions and a Close button
+void draw_help_screen(SDL_Renderer* renderer, TTF_Font* font) {
+    // Clear background and render instructions
+    SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
+    SDL_RenderClear(renderer);
+
+    SDL_Color textColor = {0, 0, 0, 255};
+    std::string instructions[] = {
+        "Welcome to 2048 Fruits!",
+        "",
+        "Objective:",
+        "Combine matching fruit tiles by sliding them",
+        "with the arrow keys. When two tiles with the",
+        "same value collide, they merge into one with",
+        "double the points. Reach the 2048 tile while",
+        "achieving the highest score.",
+        "",
+        "How to Play:",
+        "- Use arrow keys to move tiles.",
+        "- Identical tiles merge to double points.",
+        "- Game over when no moves remain.",
+        "- Highscore is saved persistently.",
+        "",
+        "Fruit to Points:",
+        "Apple: 2",
+        "Banana: 4",
+        "Dragonfruit: 8",
+        "Grape: 16",
+        "Mango: 32",
+        "Orange: 64",
+        "Peach: 128",
+        "Pineapple: 256",
+        "Pomegranate: 512",
+        "Strawberry: 1024",
+        "Watermelon: 2048",
+        "",
+        "Creators: Nguyen Hung Son"
+    };
+
+    int numLines = sizeof(instructions) / sizeof(instructions[0]);
+    int y = 20; // Starting vertical position for text
+    for (int i = 0; i < numLines; i++) {
+        SDL_Surface* textSurface = TTF_RenderText_Solid(font, instructions[i].c_str(), textColor);
+        if (textSurface) {
+            SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+            SDL_Rect textRect = {20, y, textSurface->w, textSurface->h};
+            SDL_FreeSurface(textSurface);
+            SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+            SDL_DestroyTexture(textTexture);
+            y += textRect.h + 5; // Space between lines
+        }
+    }
+
+    // Draw the Close Button on the Help screen
+    SDL_Rect closeButtonRect = {WINDOW_WIDTH - 110, WINDOW_HEIGHT - 60, 100, 50};
+    SDL_SetRenderDrawColor(renderer, 250, 100, 100, 255); // Red button
+    SDL_RenderFillRect(renderer, &closeButtonRect);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderDrawRect(renderer, &closeButtonRect);
+
+    std::string closeText = "Close";
+    SDL_Surface* closeSurface = TTF_RenderText_Solid(font, closeText.c_str(), {255, 255, 255, 255});
+    if (closeSurface) {
+        SDL_Texture* closeTexture = SDL_CreateTextureFromSurface(renderer, closeSurface);
+        SDL_Rect closeTextRect = {
+            closeButtonRect.x + (closeButtonRect.w - closeSurface->w) / 2,
+            closeButtonRect.y + (closeButtonRect.h - closeSurface->h) / 2,
+            closeSurface->w,
+            closeSurface->h
+        };
+        SDL_FreeSurface(closeSurface);
+        SDL_RenderCopy(renderer, closeTexture, NULL, &closeTextRect);
+        SDL_DestroyTexture(closeTexture);
+    }
+
+    SDL_RenderPresent(renderer);
+}
+
 void add_random_tile() {
     int empty_cells = 0;
     for (int i = 0; i < GRID_SIZE; i++)
         for (int j = 0; j < GRID_SIZE; j++)
-            if (grid[i][j] == 0) empty_cells++;
+            if (grid[i][j] == 0)
+                empty_cells++;
 
-    if (empty_cells == 0) return;
+    if (empty_cells == 0)
+        return;
 
     int target = rand() % empty_cells;
     int value = (rand() % 10 == 0) ? 4 : 2;
@@ -152,21 +304,28 @@ void add_random_tile() {
 
 void initialize_grid() {
     srand(time(0));
+    score = 0; // Reset score when starting a new game
     for (int i = 0; i < GRID_SIZE; i++)
         for (int j = 0; j < GRID_SIZE; j++)
             grid[i][j] = 0;  // Clear the grid
 
-    for (int i = 0; i < 2; i++) add_random_tile();  // Add initial tiles
+    for (int i = 0; i < 2; i++)
+        add_random_tile();  // Add initial tiles
 }
 
 bool is_game_over() {
     for (int i = 0; i < GRID_SIZE; i++)
         for (int j = 0; j < GRID_SIZE; j++) {
-            if (grid[i][j] == 0) return false;
-            if (i > 0 && grid[i][j] == grid[i - 1][j]) return false;
-            if (i < GRID_SIZE - 1 && grid[i][j] == grid[i + 1][j]) return false;
-            if (j > 0 && grid[i][j] == grid[i][j - 1]) return false;
-            if (j < GRID_SIZE - 1 && grid[i][j] == grid[i][j + 1]) return false;
+            if (grid[i][j] == 0)
+                return false;
+            if (i > 0 && grid[i][j] == grid[i - 1][j])
+                return false;
+            if (i < GRID_SIZE - 1 && grid[i][j] == grid[i + 1][j])
+                return false;
+            if (j > 0 && grid[i][j] == grid[i][j - 1])
+                return false;
+            if (j < GRID_SIZE - 1 && grid[i][j] == grid[i][j + 1])
+                return false;
         }
     return true;
 }
@@ -188,6 +347,7 @@ void move_tiles(SDL_Keycode key) {
                         }
                         if (k > 0 && grid[k - 1][j] == grid[k][j]) {
                             grid[k - 1][j] *= 2;
+                            score += grid[k - 1][j]; // Update score
                             grid[k][j] = 0;
                             moved = true;
                         }
@@ -209,6 +369,7 @@ void move_tiles(SDL_Keycode key) {
                         }
                         if (k < GRID_SIZE - 1 && grid[k + 1][j] == grid[k][j]) {
                             grid[k + 1][j] *= 2;
+                            score += grid[k + 1][j]; // Update score
                             grid[k][j] = 0;
                             moved = true;
                         }
@@ -230,6 +391,7 @@ void move_tiles(SDL_Keycode key) {
                         }
                         if (k > 0 && grid[i][k - 1] == grid[i][k]) {
                             grid[i][k - 1] *= 2;
+                            score += grid[i][k - 1]; // Update score
                             grid[i][k] = 0;
                             moved = true;
                         }
@@ -251,6 +413,7 @@ void move_tiles(SDL_Keycode key) {
                         }
                         if (k < GRID_SIZE - 1 && grid[i][k + 1] == grid[i][k]) {
                             grid[i][k + 1] *= 2;
+                            score += grid[i][k + 1]; // Update score
                             grid[i][k] = 0;
                             moved = true;
                         }
@@ -262,6 +425,10 @@ void move_tiles(SDL_Keycode key) {
 
     if (moved) {
         add_random_tile();
+        if (score > highscore) {
+            highscore = score;
+            saveHighscore(); // Persist new highscore
+        }
     }
 }
 
@@ -271,13 +438,11 @@ int main(int argc, char* argv[]) {
         std::cerr << "SDL init failed: " << SDL_GetError() << "\n";
         return 1;
     }
-
     if (TTF_Init() != 0) {
         std::cerr << "TTF init failed: " << TTF_GetError() << "\n";
         SDL_Quit();
         return 1;
     }
-
     if (!(IMG_Init(IMG_INIT_JPG) & IMG_INIT_JPG)) {
         std::cerr << "SDL_image init failed: " << IMG_GetError() << "\n";
         TTF_Quit();
@@ -287,10 +452,9 @@ int main(int argc, char* argv[]) {
 
     // Create window
     SDL_Window* window = SDL_CreateWindow("2048 Fruits",
-        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        WINDOW_WIDTH, WINDOW_HEIGHT,
-        SDL_WINDOW_SHOWN);
-
+                                          SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                                          WINDOW_WIDTH, WINDOW_HEIGHT,
+                                          SDL_WINDOW_SHOWN);
     if (!window) {
         std::cerr << "Window creation failed: " << SDL_GetError() << "\n";
         IMG_Quit();
@@ -301,8 +465,7 @@ int main(int argc, char* argv[]) {
 
     // Create renderer
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1,
-        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-
+                                                SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!renderer) {
         std::cerr << "Renderer creation failed: " << SDL_GetError() << "\n";
         SDL_DestroyWindow(window);
@@ -312,44 +475,82 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Texture loading
+    // Load textures and fonts
     loadTextures(renderer);
-
-    // Font loading
     TTF_Font* titleFont = TTF_OpenFont("arial.ttf", 48);
     TTF_Font* smallFont = TTF_OpenFont("arial.ttf", 24);
     if (!titleFont || !smallFont) {
         std::cerr << "Font loading error: " << TTF_GetError() << "\n";
     }
 
-    // Main loop
+    // Load persistent highscore
+    loadHighscore();
+
+    // Main game loop
     bool quit = false;
     SDL_Event e;
     while (!quit) {
         while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT) quit = true;
+            if (e.type == SDL_QUIT) {
+                quit = true;
+            }
+            else if (e.type == SDL_MOUSEBUTTONDOWN) {
+                if (e.button.button == SDL_BUTTON_LEFT) {
+                    int mouseX = e.button.x;
+                    int mouseY = e.button.y;
+                    if (!showHelp) {
+                        // Check if the click is inside the Help button in the sidebar
+                        SDL_Rect helpButtonRect = {GAME_AREA_WIDTH + 10, WINDOW_HEIGHT - 60, SIDEBAR_WIDTH - 20, 50};
+                        if (mouseX >= helpButtonRect.x && mouseX <= helpButtonRect.x + helpButtonRect.w &&
+                            mouseY >= helpButtonRect.y && mouseY <= helpButtonRect.y + helpButtonRect.h) {
+                            showHelp = true;
+                            continue; // Skip further processing for this event
+                        }
+                    }
+                    else {
+                        // If the Help screen is showing, check for a click on the Close button
+                        SDL_Rect closeButtonRect = {WINDOW_WIDTH - 110, WINDOW_HEIGHT - 60, 100, 50};
+                        if (mouseX >= closeButtonRect.x && mouseX <= closeButtonRect.x + closeButtonRect.w &&
+                            mouseY >= closeButtonRect.y && mouseY <= closeButtonRect.y + closeButtonRect.h) {
+                            showHelp = false;
+                            continue;
+                        }
+                    }
+                }
+            }
             else if (e.type == SDL_KEYDOWN) {
+                // Existing key handling remains here...
                 if (!gameStarted) {
                     gameStarted = true;
                     gameOver = false;
                     initialize_grid();
-                } else if (gameOver) {
+                }
+                else if (gameOver) {
                     gameOver = false;
                     initialize_grid();
-                } else {
+                }
+                else {
                     move_tiles(e.key.keysym.sym);
-                    if (is_game_over()) gameOver = true;
+                    if (is_game_over())
+                        gameOver = true;
                 }
             }
         }
 
-        if (!gameStarted) draw_start_screen(renderer, titleFont, smallFont);
-        else if (gameOver) draw_game_over_screen(renderer, titleFont, smallFont);
-        else draw_grid(renderer);
+        // Rendering based on state
+        if (showHelp)
+            draw_help_screen(renderer, smallFont);
+        else if (!gameStarted)
+            draw_start_screen(renderer, titleFont, smallFont);
+        else if (gameOver)
+            draw_game_over_screen(renderer, titleFont, smallFont);
+        else
+            draw_grid(renderer, smallFont);
     }
 
-    // Cleanup
-    for (auto& pair : fruitTextures) SDL_DestroyTexture(pair.second);
+    // Cleanup resources
+    for (auto& pair : fruitTextures)
+        SDL_DestroyTexture(pair.second);
     TTF_CloseFont(titleFont);
     TTF_CloseFont(smallFont);
     SDL_DestroyRenderer(renderer);
@@ -357,7 +558,8 @@ int main(int argc, char* argv[]) {
     IMG_Quit();
     TTF_Quit();
     SDL_Quit();
-
     return 0;
 }
+
+
 
