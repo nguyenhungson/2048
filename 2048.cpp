@@ -25,6 +25,9 @@ std::map<int, SDL_Texture*> fruitTextures;
 int score = 0;
 int highscore = 0;
 
+// NEW: Global scroll offset for the help screen
+int helpScrollOffset = 0;
+
 // Load the highscore from a file
 void loadHighscore() {
     std::ifstream infile("highscore.txt");
@@ -203,9 +206,9 @@ void draw_grid(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_RenderPresent(renderer);
 }
 
-// Draw the Help screen with instructions and a Close button
+// Draw the Help screen with instructions and a Close button, applying scrolling
 void draw_help_screen(SDL_Renderer* renderer, TTF_Font* font) {
-    // Clear background and render instructions
+    // Clear background
     SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
 
@@ -242,8 +245,18 @@ void draw_help_screen(SDL_Renderer* renderer, TTF_Font* font) {
         "Creators: Nguyen Hung Son"
     };
 
+    // Compute line height using TTF_FontLineSkip
+    int lineHeight = TTF_FontLineSkip(font);
     int numLines = sizeof(instructions) / sizeof(instructions[0]);
-    int y = 20; // Starting vertical position for text
+    int totalHeight = numLines * lineHeight;
+
+    // Clamp helpScrollOffset so it doesn't scroll too far
+    if (helpScrollOffset < 0) helpScrollOffset = 0;
+    if (helpScrollOffset > totalHeight - WINDOW_HEIGHT)
+        helpScrollOffset = totalHeight - WINDOW_HEIGHT;
+
+    // Start drawing text with the scroll offset applied
+    int y = 20 - helpScrollOffset; // starting y position
     for (int i = 0; i < numLines; i++) {
         SDL_Surface* textSurface = TTF_RenderText_Solid(font, instructions[i].c_str(), textColor);
         if (textSurface) {
@@ -252,7 +265,7 @@ void draw_help_screen(SDL_Renderer* renderer, TTF_Font* font) {
             SDL_FreeSurface(textSurface);
             SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
             SDL_DestroyTexture(textTexture);
-            y += textRect.h + 5; // Space between lines
+            y += lineHeight; // use the line height for spacing
         }
     }
 
@@ -518,8 +531,25 @@ int main(int argc, char* argv[]) {
                     }
                 }
             }
+            // NEW: Handle scrolling events in Help screen
+            else if (showHelp && e.type == SDL_MOUSEWHEEL) {
+                // On Windows, e.wheel.y is usually 1 for scroll up, -1 for scroll down.
+                helpScrollOffset -= e.wheel.y * 20; // adjust scroll speed as desired
+            }
+            else if (showHelp && e.type == SDL_KEYDOWN) {
+                if (e.key.keysym.sym == SDLK_UP) {
+                    helpScrollOffset -= 20;
+                }
+                else if (e.key.keysym.sym == SDLK_DOWN) {
+                    helpScrollOffset += 20;
+                }
+                // Also allow closing help with Escape
+                else if (e.key.keysym.sym == SDLK_ESCAPE) {
+                    showHelp = false;
+                }
+            }
             else if (e.type == SDL_KEYDOWN) {
-                // Existing key handling remains here...
+                // Existing key handling for game play
                 if (!gameStarted) {
                     gameStarted = true;
                     gameOver = false;
