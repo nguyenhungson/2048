@@ -12,10 +12,12 @@ An UET AdvProg Project
 
 - SDL2_image-2.5.2  https://github.com/libsdl-org/SDL_image/releases/download/prerelease-2.5.2/SDL2_image-devel-2.5.2-mingw.zip
 
+- SDL2_mixer-2.8.1  https://github.com/libsdl-org/SDL_mixer/releases/download/release-2.8.1/SDL2_mixer-devel-2.8.1-mingw.zip
+
 * Font I used: 
 
-- arial.ttf  https://digital-media.fao.org/archive/-2A6XC5USY4QA.html
+- doodle.ttf  https://www.1001fonts.com/your-doodle-font-font.html
 
-* Install these libraries and font, add them in your c++ compiler, the dll file to the same file as the game exe file and press build and run
+* Install these resources, add them in your c++ compiler, the dll file to the same file as the game exe file and press build and run
 
 Hope you enjoy the game ^^
