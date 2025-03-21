@@ -1,6 +1,7 @@
 #include <SDL.h>
 #include <SDL_ttf.h>
 #include <SDL_image.h>
+#include <SDL_mixer.h>
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
@@ -23,17 +24,22 @@ bool showHelp = false;
 bool showOptions = false;
 bool showCredits = false;
 std::map<int, SDL_Texture*> fruitTextures;
+const int DEFAULT_VOLUME = 100;
+const int DEFAULT_SFX_VOLUME = 100;
+int musicVolume = DEFAULT_VOLUME;
+int sfxVolume = DEFAULT_SFX_VOLUME;
 int score = 0;
 int highscore = 0;
 int helpScrollOffset = 0;
 bool isFullscreen = false;  // Start in windowed mode
+Mix_Chunk* swipeSound = nullptr;
 
-// Forward declarations for screens used in main.
+// Forward declarations for screen drawing functions.
 void draw_help_screen(SDL_Renderer* renderer, TTF_Font* font);
 void draw_credits_screen(SDL_Renderer* renderer, TTF_Font* font);
 void draw_options_screen(SDL_Renderer* renderer, TTF_Font* font);
 
-// Load highscore from file
+// Load highscore from file.
 void loadHighscore() {
     std::ifstream infile("highscore.txt");
     if (infile.is_open()) {
@@ -44,7 +50,7 @@ void loadHighscore() {
     }
 }
 
-// Save highscore to file
+// Save highscore to file.
 void saveHighscore() {
     std::ofstream outfile("highscore.txt");
     if (outfile.is_open()) {
@@ -53,12 +59,12 @@ void saveHighscore() {
     }
 }
 
-// Dummy function for file verification
+// Dummy function for file verification.
 void verifyFiles() {
     // Assume required files exist.
 }
 
-// Load fruit textures
+// Load fruit textures.
 void loadTextures(SDL_Renderer* renderer) {
     std::string fruitNames[] = {
         "apple", "banana", "dragonfruit", "grape", "mango",
@@ -79,12 +85,12 @@ void loadTextures(SDL_Renderer* renderer) {
     }
 }
 
-// Recompute layout (7:1 ratio, clamped if needed)
+// Recompute layout based on current window size (using 7:1 ratio for grid:sidebar).
 void recomputeLayout(SDL_Window* window) {
     int actualW, actualH;
     SDL_GetWindowSize(window, &actualW, &actualH);
 
-    // Use a 7:1 ratio (grid:sidebar) => total 8 parts
+    // 7:1 ratio => total 8 parts.
     int proposedGameWidth = (actualW * 7) / 8;
     if (proposedGameWidth > actualH) {
         proposedGameWidth = actualH;
@@ -105,7 +111,7 @@ void recomputeLayout(SDL_Window* window) {
     }
 }
 
-// Draw the start screen
+// Draw the start screen.
 void draw_start_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font* smallFont) {
     SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
@@ -138,13 +144,12 @@ void draw_start_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font* sm
     SDL_RenderPresent(renderer);
 }
 
-// Draw the game over screen with Restart and Quit buttons
 void draw_game_over_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font* smallFont) {
     SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
     SDL_Color textColor = {0, 0, 0, 255};
 
-    // Draw title
+    // Draw "Game Over!" title.
     SDL_Surface* gameOverSurface = TTF_RenderText_Solid(titleFont, "Game Over!", textColor);
     SDL_Texture* gameOverTexture = SDL_CreateTextureFromSurface(renderer, gameOverSurface);
     SDL_Rect gameOverRect = {
@@ -157,15 +162,29 @@ void draw_game_over_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font
     SDL_RenderCopy(renderer, gameOverTexture, NULL, &gameOverRect);
     SDL_DestroyTexture(gameOverTexture);
 
-    // Define button dimensions and positions
+    // Draw result line below the title.
+    std::string resultText = "Your Score: " + std::to_string(score);
+    SDL_Surface* resultSurface = TTF_RenderText_Solid(smallFont, resultText.c_str(), textColor);
+    SDL_Texture* resultTexture = SDL_CreateTextureFromSurface(renderer, resultSurface);
+    SDL_Rect resultRect = {
+        (WINDOW_WIDTH - resultSurface->w) / 2,
+        gameOverRect.y + gameOverRect.h + 10,
+        resultSurface->w,
+        resultSurface->h
+    };
+    SDL_FreeSurface(resultSurface);
+    SDL_RenderCopy(renderer, resultTexture, NULL, &resultRect);
+    SDL_DestroyTexture(resultTexture);
+
+    // Define buttons for Restart and Quit.
     int btnWidth = 200;
     int btnHeight = 50;
     int spacing = 20;
-    int btnStartY = gameOverRect.y + gameOverRect.h + 50;
+    int btnStartY = resultRect.y + resultRect.h + 30;
     SDL_Rect restartBtn = { (WINDOW_WIDTH - btnWidth) / 2, btnStartY, btnWidth, btnHeight };
     SDL_Rect quitBtn = { (WINDOW_WIDTH - btnWidth) / 2, btnStartY + btnHeight + spacing, btnWidth, btnHeight };
 
-    // Draw Restart Button
+    // Draw Restart Button.
     SDL_SetRenderDrawColor(renderer, 100, 250, 100, 255);
     SDL_RenderFillRect(renderer, &restartBtn);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -184,7 +203,7 @@ void draw_game_over_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font
         SDL_DestroyTexture(restartTextTex);
     }
 
-    // Draw Quit Button
+    // Draw Quit Button.
     SDL_SetRenderDrawColor(renderer, 250, 100, 100, 255);
     SDL_RenderFillRect(renderer, &quitBtn);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -206,7 +225,7 @@ void draw_game_over_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font
     SDL_RenderPresent(renderer);
 }
 
-// Draw the sidebar with an Options button
+// Draw the sidebar with an Options button.
 void draw_sidebar(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_Rect sidebarRect = {GAME_AREA_WIDTH, 0, SIDEBAR_WIDTH, WINDOW_HEIGHT};
     SDL_SetRenderDrawColor(renderer, 150, 150, 150, 255);
@@ -229,7 +248,7 @@ void draw_sidebar(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_RenderCopy(renderer, highTexture, NULL, &highRect);
     SDL_DestroyTexture(highTexture);
 
-    // Draw Options button
+    // Draw Options button.
     SDL_Rect optionButtonRect = {GAME_AREA_WIDTH + 10, WINDOW_HEIGHT - 60, SIDEBAR_WIDTH - 20, 50};
     SDL_SetRenderDrawColor(renderer, 100, 200, 100, 255);
     SDL_RenderFillRect(renderer, &optionButtonRect);
@@ -252,7 +271,7 @@ void draw_sidebar(SDL_Renderer* renderer, TTF_Font* font) {
     }
 }
 
-// Draw the main grid and sidebar
+// Draw the main grid and sidebar.
 void draw_grid(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
@@ -275,34 +294,31 @@ void draw_grid(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_RenderPresent(renderer);
 }
 
-// Draw the Options screen with buttons for Help, Restart, Credits, Quit, and a Back button
 void draw_options_screen(SDL_Renderer* renderer, TTF_Font* font) {
+    // Clear background
     SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
     SDL_Color textColor = {0, 0, 0, 255};
 
-    // Title "Options"
+    // Draw Title "Options"
     SDL_Surface* titleSurf = TTF_RenderText_Solid(font, "Options", textColor);
     SDL_Texture* titleTex = SDL_CreateTextureFromSurface(renderer, titleSurf);
-    SDL_Rect titleRect = {
-        (WINDOW_WIDTH - titleSurf->w) / 2, 50,
-        titleSurf->w, titleSurf->h
-    };
+    SDL_Rect titleRect = { (WINDOW_WIDTH - titleSurf->w) / 2, 50, titleSurf->w, titleSurf->h };
     SDL_FreeSurface(titleSurf);
     SDL_RenderCopy(renderer, titleTex, NULL, &titleRect);
     SDL_DestroyTexture(titleTex);
 
-    int btnWidth = 200;
-    int btnHeight = 50;
-    int spacing = 20;
-    int startY = 120;
-    SDL_Rect helpBtn = { (WINDOW_WIDTH - btnWidth) / 2, startY, btnWidth, btnHeight };
-    SDL_Rect restartBtn = { (WINDOW_WIDTH - btnWidth) / 2, startY + btnHeight + spacing, btnWidth, btnHeight };
-    SDL_Rect creditBtn = { (WINDOW_WIDTH - btnWidth) / 2, startY + 2 * (btnHeight + spacing), btnWidth, btnHeight };
-    SDL_Rect quitBtn = { (WINDOW_WIDTH - btnWidth) / 2, startY + 3 * (btnHeight + spacing), btnWidth, btnHeight };
+    // Set button dimensions and positions.
+    const int btnWidth = 200, btnHeight = 50, spacing = 20;
+    const int baseY = 120;  // starting Y for buttons
+
+    SDL_Rect helpBtn = { (WINDOW_WIDTH - btnWidth) / 2, baseY, btnWidth, btnHeight };
+    SDL_Rect restartBtn = { (WINDOW_WIDTH - btnWidth) / 2, baseY + btnHeight + spacing, btnWidth, btnHeight };
+    SDL_Rect creditBtn = { (WINDOW_WIDTH - btnWidth) / 2, baseY + 2 * (btnHeight + spacing), btnWidth, btnHeight };
+    SDL_Rect optionQuitBtn = { (WINDOW_WIDTH - btnWidth) / 2, baseY + 3 * (btnHeight + spacing), btnWidth, btnHeight };
     SDL_Rect backBtn = { WINDOW_WIDTH - 110, WINDOW_HEIGHT - 60, 100, 50 };
 
-    // Draw Help button
+    // Draw Help Button
     SDL_SetRenderDrawColor(renderer, 100, 100, 250, 255);
     SDL_RenderFillRect(renderer, &helpBtn);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -310,18 +326,15 @@ void draw_options_screen(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_Surface* helpTextSurf = TTF_RenderText_Solid(font, "Help", textColor);
     if (helpTextSurf) {
         SDL_Texture* helpTextTex = SDL_CreateTextureFromSurface(renderer, helpTextSurf);
-        SDL_Rect helpTextRect = {
-            helpBtn.x + (btnWidth - helpTextSurf->w) / 2,
-            helpBtn.y + (btnHeight - helpTextSurf->h) / 2,
-            helpTextSurf->w,
-            helpTextSurf->h
-        };
+        SDL_Rect helpTextRect = { helpBtn.x + (btnWidth - helpTextSurf->w) / 2,
+                                  helpBtn.y + (btnHeight - helpTextSurf->h) / 2,
+                                  helpTextSurf->w, helpTextSurf->h };
         SDL_FreeSurface(helpTextSurf);
         SDL_RenderCopy(renderer, helpTextTex, NULL, &helpTextRect);
         SDL_DestroyTexture(helpTextTex);
     }
 
-    // Draw Restart button
+    // Draw Restart Button
     SDL_SetRenderDrawColor(renderer, 100, 250, 100, 255);
     SDL_RenderFillRect(renderer, &restartBtn);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -329,18 +342,15 @@ void draw_options_screen(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_Surface* restartTextSurf = TTF_RenderText_Solid(font, "Restart", textColor);
     if (restartTextSurf) {
         SDL_Texture* restartTextTex = SDL_CreateTextureFromSurface(renderer, restartTextSurf);
-        SDL_Rect restartTextRect = {
-            restartBtn.x + (btnWidth - restartTextSurf->w) / 2,
-            restartBtn.y + (btnHeight - restartTextSurf->h) / 2,
-            restartTextSurf->w,
-            restartTextSurf->h
-        };
+        SDL_Rect restartTextRect = { restartBtn.x + (btnWidth - restartTextSurf->w) / 2,
+                                     restartBtn.y + (btnHeight - restartTextSurf->h) / 2,
+                                     restartTextSurf->w, restartTextSurf->h };
         SDL_FreeSurface(restartTextSurf);
         SDL_RenderCopy(renderer, restartTextTex, NULL, &restartTextRect);
         SDL_DestroyTexture(restartTextTex);
     }
 
-    // Draw Credits button
+    // Draw Credits Button
     SDL_SetRenderDrawColor(renderer, 250, 100, 100, 255);
     SDL_RenderFillRect(renderer, &creditBtn);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -348,38 +358,81 @@ void draw_options_screen(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_Surface* creditTextSurf = TTF_RenderText_Solid(font, "Credits", textColor);
     if (creditTextSurf) {
         SDL_Texture* creditTextTex = SDL_CreateTextureFromSurface(renderer, creditTextSurf);
-        SDL_Rect creditTextRect = {
-            creditBtn.x + (btnWidth - creditTextSurf->w) / 2,
-            creditBtn.y + (btnHeight - creditTextSurf->h) / 2,
-            creditTextSurf->w,
-            creditTextSurf->h
-        };
+        SDL_Rect creditTextRect = { creditBtn.x + (btnWidth - creditTextSurf->w) / 2,
+                                    creditBtn.y + (btnHeight - creditTextSurf->h) / 2,
+                                    creditTextSurf->w, creditTextSurf->h };
         SDL_FreeSurface(creditTextSurf);
         SDL_RenderCopy(renderer, creditTextTex, NULL, &creditTextRect);
         SDL_DestroyTexture(creditTextTex);
     }
 
-    // Draw Quit button
+    // Draw Quit Button in Options
     SDL_SetRenderDrawColor(renderer, 250, 100, 250, 255);
-    SDL_RenderFillRect(renderer, &quitBtn);
+    SDL_RenderFillRect(renderer, &optionQuitBtn);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderDrawRect(renderer, &quitBtn);
+    SDL_RenderDrawRect(renderer, &optionQuitBtn);
     SDL_Surface* quitTextSurf = TTF_RenderText_Solid(font, "Quit", textColor);
     if (quitTextSurf) {
         SDL_Texture* quitTextTex = SDL_CreateTextureFromSurface(renderer, quitTextSurf);
-        SDL_Rect quitTextRect = {
-            quitBtn.x + (btnWidth - quitTextSurf->w) / 2,
-            quitBtn.y + (btnHeight - quitTextSurf->h) / 2,
-            quitTextSurf->w,
-            quitTextSurf->h
-        };
+        SDL_Rect quitTextRect = { optionQuitBtn.x + (btnWidth - quitTextSurf->w) / 2,
+                                  optionQuitBtn.y + (btnHeight - quitTextSurf->h) / 2,
+                                  quitTextSurf->w, quitTextSurf->h };
         SDL_FreeSurface(quitTextSurf);
         SDL_RenderCopy(renderer, quitTextTex, NULL, &quitTextRect);
         SDL_DestroyTexture(quitTextTex);
     }
 
+    // Draw Music Slider
+    int sliderWidth = 300;
+    int sliderHeight = 20;
+    int sliderX = (WINDOW_WIDTH - sliderWidth) / 2;
+
+    // Music Slider
+    int musicSliderY = baseY + 3 * (btnHeight + spacing) + 40;
+    SDL_Rect musicSliderBg = { sliderX, musicSliderY, sliderWidth, sliderHeight };
+    SDL_SetRenderDrawColor(renderer, 180, 180, 180, 255);
+    SDL_RenderFillRect(renderer, &musicSliderBg);
+    int handleWidth = 10;
+    int musicHandleX = sliderX + (musicVolume * (sliderWidth - handleWidth)) / DEFAULT_VOLUME;
+    SDL_Rect musicHandleRect = { musicHandleX, musicSliderY - 5, handleWidth, sliderHeight + 10 };
+    SDL_SetRenderDrawColor(renderer, 100, 100, 250, 255);
+    SDL_RenderFillRect(renderer, &musicHandleRect);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderDrawRect(renderer, &musicSliderBg);
+    // Music label
+    SDL_Surface* musicLabelSurf = TTF_RenderText_Solid(font, "Music", textColor);
+    if (musicLabelSurf) {
+        SDL_Texture* musicLabelTex = SDL_CreateTextureFromSurface(renderer, musicLabelSurf);
+        SDL_Rect musicLabelRect = { sliderX, musicSliderY - 30, musicLabelSurf->w, musicLabelSurf->h };
+        SDL_FreeSurface(musicLabelSurf);
+        SDL_RenderCopy(renderer, musicLabelTex, NULL, &musicLabelRect);
+        SDL_DestroyTexture(musicLabelTex);
+    }
+
+    // SFX Slider
+    int sfxSliderY = musicSliderY + 50;  // 50 pixels below the Music slider
+    SDL_Rect sfxSliderBg = { sliderX, sfxSliderY, sliderWidth, sliderHeight };
+    SDL_SetRenderDrawColor(renderer, 180, 180, 180, 255);
+    SDL_RenderFillRect(renderer, &sfxSliderBg);
+    int sfxHandleX = sliderX + (sfxVolume * (sliderWidth - handleWidth)) / DEFAULT_SFX_VOLUME;
+    SDL_Rect sfxHandleRect = { sfxHandleX, sfxSliderY - 5, handleWidth, sliderHeight + 10 };
+    SDL_SetRenderDrawColor(renderer, 100, 100, 250, 255);
+    SDL_RenderFillRect(renderer, &sfxHandleRect);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderDrawRect(renderer, &sfxSliderBg);
+
+    // SFX label
+    SDL_Surface* sfxLabelSurf = TTF_RenderText_Solid(font, "SFX", textColor);
+    if (sfxLabelSurf) {
+        SDL_Texture* sfxLabelTex = SDL_CreateTextureFromSurface(renderer, sfxLabelSurf);
+        SDL_Rect sfxLabelRect = { sliderX, sfxSliderY - 30, sfxLabelSurf->w, sfxLabelSurf->h };
+        SDL_FreeSurface(sfxLabelSurf);
+        SDL_RenderCopy(renderer, sfxLabelTex, NULL, &sfxLabelRect);
+        SDL_DestroyTexture(sfxLabelTex);
+    }
+
     // Draw Back button
-    SDL_Rect backButtonRect = {WINDOW_WIDTH - 110, WINDOW_HEIGHT - 60, 100, 50};
+    SDL_Rect backButtonRect = { WINDOW_WIDTH - 110, WINDOW_HEIGHT - 60, 100, 50 };
     SDL_SetRenderDrawColor(renderer, 200, 200, 100, 255);
     SDL_RenderFillRect(renderer, &backButtonRect);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -387,12 +440,9 @@ void draw_options_screen(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_Surface* backTextSurf = TTF_RenderText_Solid(font, "Back", textColor);
     if (backTextSurf) {
         SDL_Texture* backTextTex = SDL_CreateTextureFromSurface(renderer, backTextSurf);
-        SDL_Rect backTextRect = {
-            backButtonRect.x + (backButtonRect.w - backTextSurf->w) / 2,
-            backButtonRect.y + (backButtonRect.h - backTextSurf->h) / 2,
-            backTextSurf->w,
-            backTextSurf->h
-        };
+        SDL_Rect backTextRect = { backButtonRect.x + (backButtonRect.w - backTextSurf->w) / 2,
+                                  backButtonRect.y + (backButtonRect.h - backTextSurf->h) / 2,
+                                  backTextSurf->w, backTextSurf->h };
         SDL_FreeSurface(backTextSurf);
         SDL_RenderCopy(renderer, backTextTex, NULL, &backTextRect);
         SDL_DestroyTexture(backTextTex);
@@ -401,7 +451,7 @@ void draw_options_screen(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_RenderPresent(renderer);
 }
 
-// Draw the help screen
+// Draw the help screen.
 void draw_help_screen(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
@@ -433,7 +483,7 @@ void draw_help_screen(SDL_Renderer* renderer, TTF_Font* font) {
         "Pineapple: 256",
         "Pomegranate: 512",
         "Strawberry: 1024",
-        "Watermelon: 2048"
+        "Watermelon: 2048",
         ""
     };
     int lineHeight = TTF_FontLineSkip(font);
@@ -476,7 +526,7 @@ void draw_help_screen(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_RenderPresent(renderer);
 }
 
-// Draw the credits screen
+// Draw the credits screen.
 void draw_credits_screen(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
@@ -643,6 +693,9 @@ void move_tiles(SDL_Keycode key) {
             break;
     }
     if (moved) {
+         if (swipeSound){
+            Mix_PlayChannel(-1, swipeSound, 0);
+        }
         add_random_tile();
         if (score > highscore) {
             highscore = score;
@@ -667,6 +720,27 @@ int main(int argc, char* argv[]) {
         SDL_Quit();
         return 1;
     }
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        std::cerr << "SDL_mixer could not initialize! SDL_mixer Error: " << Mix_GetError() << "\n";
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
+
+    // Load and play background music
+    Mix_Music* bgMusic = Mix_LoadMUS("mouse repellent.mp3");
+    if (!bgMusic) {
+        std::cerr << "Failed to load background music: " << Mix_GetError() << "\n";
+    } else {
+        Mix_PlayMusic(bgMusic, -1); // Loop indefinitely
+        Mix_VolumeMusic(32);
+    }
+
+    // Load swipe sound effect
+    swipeSound = Mix_LoadWAV("duckquack.wav");
+    if (!swipeSound){
+        std::cerr << "Failed to load swipe sound effect: " << Mix_GetError() << "\n";
+    }
 
     // Create a windowed, resizable window at 1000×700
     SDL_Window* window = SDL_CreateWindow(
@@ -677,12 +751,13 @@ int main(int argc, char* argv[]) {
     );
     if (!window) {
         std::cerr << "Window creation failed: " << SDL_GetError() << "\n";
+        Mix_FreeMusic(bgMusic);
+        Mix_CloseAudio();
         IMG_Quit();
         TTF_Quit();
         SDL_Quit();
         return 1;
     }
-
     SDL_Renderer* renderer = SDL_CreateRenderer(
         window, -1,
         SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
@@ -690,6 +765,8 @@ int main(int argc, char* argv[]) {
     if (!renderer) {
         std::cerr << "Renderer creation failed: " << SDL_GetError() << "\n";
         SDL_DestroyWindow(window);
+        Mix_FreeMusic(bgMusic);
+        Mix_CloseAudio();
         IMG_Quit();
         TTF_Quit();
         SDL_Quit();
@@ -698,8 +775,8 @@ int main(int argc, char* argv[]) {
 
     recomputeLayout(window);
     loadTextures(renderer);
-    TTF_Font* titleFont = TTF_OpenFont("arial.ttf", 48);
-    TTF_Font* smallFont = TTF_OpenFont("arial.ttf", 24);
+    TTF_Font* titleFont = TTF_OpenFont("doodle.ttf", 72);
+    TTF_Font* smallFont = TTF_OpenFont("doodle.ttf", 48);
     if (!titleFont || !smallFont) {
         std::cerr << "Font loading error: " << TTF_GetError() << "\n";
     }
@@ -766,14 +843,26 @@ int main(int argc, char* argv[]) {
                             continue;
                         }
                     } else if (showOptions) {
-                        int btnWidth = 200;
-                        int btnHeight = 50;
-                        int spacing = 20;
+                        int sliderWidth = 300, sliderHeight = 20;
+                        int sliderX = (WINDOW_WIDTH - sliderWidth) / 2;
                         int startY = 120;
-                        SDL_Rect helpBtn = { (WINDOW_WIDTH - btnWidth) / 2, startY, btnWidth, btnHeight };
-                        SDL_Rect restartBtn = { (WINDOW_WIDTH - btnWidth) / 2, startY + btnHeight + spacing, btnWidth, btnHeight };
-                        SDL_Rect creditBtn = { (WINDOW_WIDTH - btnWidth) / 2, startY + 2 * (btnHeight + spacing), btnWidth, btnHeight };
-                        SDL_Rect quitBtn = { (WINDOW_WIDTH - btnWidth) / 2, startY + 3 * (btnHeight + spacing), btnWidth, btnHeight };
+                        int btnHeight = 50, spacing = 20;
+                        int sliderY = startY + 3 * (btnHeight + spacing) + 40;
+                        SDL_Rect sliderBg = { sliderX, sliderY, sliderWidth, sliderHeight };
+                        if (mouseX >= sliderBg.x && mouseX <= sliderBg.x + sliderBg.w &&
+                            mouseY >= sliderBg.y && mouseY <= sliderBg.y + sliderBg.h) {
+                            musicVolume = ((mouseX - sliderX) * 128) / sliderWidth;
+                            if (musicVolume < 0) musicVolume = 0;
+                            if (musicVolume > 128) musicVolume = 128;
+                            Mix_VolumeMusic(musicVolume);
+                            continue;
+                        }
+                        int btnWidth = 200, btnHeight2 = 50, spacing2 = 20;
+                        int startY2 = 120;
+                        SDL_Rect helpBtn = { (WINDOW_WIDTH - btnWidth) / 2, startY2, btnWidth, btnHeight2 };
+                        SDL_Rect restartBtn = { (WINDOW_WIDTH - btnWidth) / 2, startY2 + btnHeight2 + spacing2, btnWidth, btnHeight2 };
+                        SDL_Rect creditBtn = { (WINDOW_WIDTH - btnWidth) / 2, startY2 + 2 * (btnHeight2 + spacing2), btnWidth, btnHeight2 };
+                        SDL_Rect optionQuitBtn = { (WINDOW_WIDTH - btnWidth) / 2, startY2 + 3 * (btnHeight2 + spacing2), btnWidth, btnHeight2 };
                         SDL_Rect backBtn = { WINDOW_WIDTH - 110, WINDOW_HEIGHT - 60, 100, 50 };
                         if (mouseX >= helpBtn.x && mouseX <= helpBtn.x + helpBtn.w &&
                             mouseY >= helpBtn.y && mouseY <= helpBtn.y + helpBtn.h) {
@@ -792,8 +881,8 @@ int main(int argc, char* argv[]) {
                             showCredits = true;
                             showOptions = false;
                             continue;
-                        } else if (mouseX >= quitBtn.x && mouseX <= quitBtn.x + quitBtn.w &&
-                                   mouseY >= quitBtn.y && mouseY <= quitBtn.y + quitBtn.h) {
+                        } else if (mouseX >= optionQuitBtn.x && mouseX <= optionQuitBtn.x + optionQuitBtn.w &&
+                                   mouseY >= optionQuitBtn.y && mouseY <= optionQuitBtn.y + optionQuitBtn.h) {
                             quit = true;
                             continue;
                         } else if (mouseX >= backBtn.x && mouseX <= backBtn.x + backBtn.w &&
@@ -818,12 +907,10 @@ int main(int argc, char* argv[]) {
                             continue;
                         }
                     } else if (gameOver) {
-                        int btnWidth = 200;
-                        int btnHeight = 50;
-                        int spacing = 20;
+                        int btnWidth = 200, btnHeight2 = 50, spacing2 = 20;
                         int btnStartY = (WINDOW_HEIGHT / 4) + 100;
-                        SDL_Rect restartBtn = { (WINDOW_WIDTH - btnWidth) / 2, btnStartY, btnWidth, btnHeight };
-                        SDL_Rect quitBtn = { (WINDOW_WIDTH - btnWidth) / 2, btnStartY + btnHeight + spacing, btnWidth, btnHeight };
+                        SDL_Rect restartBtn = { (WINDOW_WIDTH - btnWidth) / 2, btnStartY, btnWidth, btnHeight2 };
+                        SDL_Rect quitBtn = { (WINDOW_WIDTH - btnWidth) / 2, btnStartY + btnHeight2 + spacing2, btnWidth, btnHeight2 };
                         if (mouseX >= restartBtn.x && mouseX <= restartBtn.x + restartBtn.w &&
                             mouseY >= restartBtn.y && mouseY <= restartBtn.y + restartBtn.h) {
                             initialize_grid();
@@ -838,8 +925,37 @@ int main(int argc, char* argv[]) {
                     }
                 }
             }
-            else if (showOptions && e.type == SDL_MOUSEWHEEL) {
-                helpScrollOffset -= e.wheel.y * 20;
+            else if (showOptions && e.type == SDL_MOUSEMOTION && (e.motion.state & SDL_BUTTON_LMASK)) {
+                int sliderWidth = 300;
+                int sliderX = (WINDOW_WIDTH - sliderWidth) / 2;
+                int startY = 120;
+                int btnHeight = 50, spacing = 20;
+
+                int musicSliderY = startY + 3 * (btnHeight + spacing) + 40;
+                int sfxSliderY = musicSliderY + 50;
+
+                SDL_Rect musicSliderRect = { sliderX, musicSliderY, sliderWidth, 20 };
+                SDL_Rect sfxSliderRect = { sliderX, sfxSliderY, sliderWidth, 20 };
+
+                if (e.motion.x >= musicSliderRect.x && e.motion.x <= musicSliderRect.x + musicSliderRect.w &&
+                    e.motion.y >= musicSliderRect.y && e.motion.y <= musicSliderRect.y + musicSliderRect.h) {
+                    int clampedX = e.motion.x;
+                    if (clampedX < sliderX) clampedX = sliderX;
+                    if (clampedX > sliderX + sliderWidth) clampedX = sliderX + sliderWidth;
+                    int sliderPosition = clampedX - sliderX;
+                    musicVolume = (sliderPosition * DEFAULT_VOLUME) / sliderWidth;
+                    Mix_VolumeMusic(musicVolume);
+                }
+
+                else if (e.motion.x >= sfxSliderRect.x && e.motion.x <= sfxSliderRect.x + sfxSliderRect.w &&
+                         e.motion.y >= sfxSliderRect.y && e.motion.y <= sfxSliderRect.y + sfxSliderRect.h) {
+                    int clampedX = e.motion.x;
+                    if (clampedX < sliderX) clampedX = sliderX;
+                    if (clampedX > sliderX + sliderWidth) clampedX = sliderX + sliderWidth;
+                    int sliderPosition = clampedX - sliderX;
+                    sfxVolume = (sliderPosition * DEFAULT_SFX_VOLUME) / sliderWidth;
+                    Mix_VolumeChunk(swipeSound, sfxVolume);
+                }
             }
         }
 
@@ -870,23 +986,13 @@ int main(int argc, char* argv[]) {
     TTF_CloseFont(smallFont);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    Mix_FreeMusic(bgMusic);
+    Mix_CloseAudio();
     IMG_Quit();
     TTF_Quit();
     SDL_Quit();
     return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
