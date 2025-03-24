@@ -40,8 +40,10 @@ int highscore = 0;
 int helpScrollOffset = 0;
 bool isFullscreen = false;
 
-// Sound effect (swipe sound)
+// Sound effect
 Mix_Chunk* swipeSound = nullptr;
+Mix_Chunk* gameOverSound = nullptr;
+Mix_Chunk* gameWinSound = nullptr;
 
 // Forward declarations for functions
 void loadHighscore();
@@ -825,7 +827,16 @@ void move_tiles(SDL_Keycode key) {
             saveHighscore();
         }
         if (is_game_won() && !lock2048) {
-            gameWon = true;
+            if (!gameWon){
+                gameWon = true;
+                Mix_PlayChannel(-1, gameWinSound, 0);
+            }
+        }
+        if (is_game_over()) {
+            if (!gameOver) {
+                gameOver = true;
+                Mix_PlayChannel(-1, gameOverSound, 0);
+            }
         }
     }
 }
@@ -853,7 +864,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    Mix_Music* bgMusic = Mix_LoadMUS("mouse repellent.mp3");
+    Mix_Music* bgMusic = Mix_LoadMUS("linga guli guli.mp3");
     if (!bgMusic) {
         std::cerr << "Failed to load background music: " << Mix_GetError() << "\n";
     } else {
@@ -867,10 +878,24 @@ int main(int argc, char* argv[]) {
         Mix_VolumeChunk(swipeSound, sfxVolume);
     }
 
+    gameOverSound = Mix_LoadWAV();
+    if (!gameOverSound){
+        std::cerr << "Failed to load game over sound effect: " << Mix_GetError() << "\n";
+    } else {
+        Mix_VolumeChunk(gameOverSound, sfxVolume);
+    }
+
+    gameWinSound = Mix_LoadWAV();
+    if (!gameWinSound){
+        std::cerr << "Failed to load game win sound effect: " << Mix_GetError() << "\n";
+    } else {
+        Mix_VolumeChunk(gameWinSound, sfxVolume);
+    }
+
     SDL_Window* window = SDL_CreateWindow(
         "2048 Fruits",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        1000, 700,
+        1100, 700,
         SDL_WINDOW_RESIZABLE
     );
     if (!window) {
@@ -1165,6 +1190,8 @@ int main(int argc, char* argv[]) {
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     Mix_FreeChunk(swipeSound);
+    Mix_FreeChunk(gameOverSound);
+    Mix_FreeChunk(winSound);
     Mix_FreeMusic(bgMusic);
     Mix_CloseAudio();
     IMG_Quit();
