@@ -52,8 +52,13 @@ Mix_Music* gameWinMusic = nullptr;
 Mix_Chunk* swipeSound = nullptr;
 Mix_Chunk* gameOverSound = nullptr;
 
-// Game pictures
+// Game backgrounds
 SDL_Texture* gridBackground = nullptr;
+SDL_Texture* optionBackground = nullptr;
+SDL_Texture* startBackground = nullptr;
+
+// Game surfaces
+SDL_Surface* startSurface = nullptr;
 
 // Forward declarations for functions
 void loadHighscore();
@@ -152,32 +157,10 @@ void recomputeLayout(SDL_Window* window) {
 void draw_start_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font* smallFont) {
     SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
-    SDL_Color textColor = {0, 0, 0, 255};
-
-    SDL_Surface* titleSurface = TTF_RenderText_Solid(titleFont, "2048", textColor);
-    SDL_Texture* titleTexture = SDL_CreateTextureFromSurface(renderer, titleSurface);
-    SDL_Rect titleRect = {
-        (WINDOW_WIDTH - titleSurface->w) / 2,
-        (WINDOW_HEIGHT / 3) - (titleSurface->h / 2),
-        titleSurface->w,
-        titleSurface->h
-    };
-    SDL_FreeSurface(titleSurface);
-    SDL_RenderCopy(renderer, titleTexture, NULL, &titleRect);
-    SDL_DestroyTexture(titleTexture);
-
-    SDL_Surface* startSurface = TTF_RenderText_Solid(smallFont, "Press any key to start", textColor);
-    SDL_Texture* startTexture = SDL_CreateTextureFromSurface(renderer, startSurface);
-    SDL_Rect startRect = {
-        (WINDOW_WIDTH - startSurface->w) / 2,
-        titleRect.y + titleRect.h + 50,
-        startSurface->w,
-        startSurface->h
-    };
-    SDL_FreeSurface(startSurface);
-    SDL_RenderCopy(renderer, startTexture, NULL, &startRect);
-    SDL_DestroyTexture(startTexture);
-
+    if (startBackground) {
+        SDL_Rect destRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
+        SDL_RenderCopy(renderer, startBackground, NULL, &destRect);
+    }
     SDL_RenderPresent(renderer);
 }
 
@@ -435,35 +418,39 @@ void draw_grid(SDL_Renderer* renderer, TTF_Font* font) {
 void draw_help_screen(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
+    if (optionBackground) {
+        SDL_Rect destRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
+        SDL_RenderCopy(renderer, optionBackground, NULL, &destRect);
+    }
     SDL_Color textColor = {0, 0, 0, 255};
     std::string instructions[] = {
-        "Welcome to 2048 Fruits!",
+        "                       Welcome to 2048 Fruits!",
         "",
-        "Objective:",
+        "* Objective:",
         "Combine matching fruit tiles by sliding them",
         "with the arrow keys. When two tiles with the",
         "same value collide, they merge into one with",
         "double the points. Reach the 2048 tile while",
         "achieving the highest score.",
         "",
-        "How to Play:",
+        "* How to Play:",
         "- Use arrow keys to move tiles.",
         "- Identical tiles merge to double points.",
         "- Game over when no moves remain.",
         "- Highscore is saved persistently.",
         "",
-        "Fruit to Points:",
-        "Apple: 2",
-        "Banana: 4",
-        "Dragonfruit: 8",
-        "Grape: 16",
-        "Mango: 32",
-        "Orange: 64",
-        "Peach: 128",
-        "Pineapple: 256",
-        "Pomegranate: 512",
-        "Strawberry: 1024",
-        "Watermelon: 2048",
+        "* Fruit to Points:",
+        "- Apple: 2",
+        "- Banana: 4",
+        "- Dragonfruit: 8",
+        "- Grape: 16",
+        "- Mango: 32",
+        "- Orange: 64",
+        "- Peach: 128",
+        "- Pineapple: 256",
+        "- Pomegranate: 512",
+        "- Strawberry: 1024",
+        "- Watermelon: 2048",
         ""
     };
     int lineHeight = TTF_FontLineSkip(font);
@@ -509,8 +496,12 @@ void draw_help_screen(SDL_Renderer* renderer, TTF_Font* font) {
 void draw_credits_screen(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
+    if (optionBackground) {
+        SDL_Rect destRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
+        SDL_RenderCopy(renderer, optionBackground, NULL, &destRect);
+    }
     SDL_Color textColor = {0, 0, 0, 255};
-    std::string credits = "Credits:\n\nDeveloped by MVPSON98 HARDSTUCK SILVER";
+    std::string credits = "                                        Credits\n\n            Developed by MVPSON98 HARDSTUCK SILVER\n\n            PROPS TO DATSKII FOR THE LOVELY ARTWORK";
     SDL_Surface* creditSurface = TTF_RenderText_Blended_Wrapped(font, credits.c_str(), textColor, WINDOW_WIDTH - 40);
     if (creditSurface) {
         SDL_Texture* creditTexture = SDL_CreateTextureFromSurface(renderer, creditSurface);
@@ -543,6 +534,10 @@ void draw_credits_screen(SDL_Renderer* renderer, TTF_Font* font) {
 void draw_options_screen(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
+    if (optionBackground) {
+        SDL_Rect destRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
+        SDL_RenderCopy(renderer, optionBackground, NULL, &destRect);
+    }
     SDL_Color textColor = {0, 0, 0, 255};
 
     // Title "Options"
@@ -745,7 +740,6 @@ bool is_game_over() {
     return true;
 }
 
-
 bool is_game_won() {
     for (int i = 0; i < GRID_SIZE; i++)
         for (int j = 0; j < GRID_SIZE; j++)
@@ -906,10 +900,17 @@ int main(int argc, char* argv[]) {
         SDL_Quit();
         return 1;
     }
+    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
+        std::cerr << "SDL_image init failed: " << IMG_GetError() << "\n";
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
     if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
         std::cerr << "SDL_mixer could not initialize! SDL_mixer Error: " << Mix_GetError() << "\n";
         TTF_Quit();
         SDL_Quit();
+        IMG_Quit();
         return 1;
     }
     //Music
@@ -928,7 +929,7 @@ int main(int argc, char* argv[]) {
         Mix_VolumeMusic(musicVolume);
     }
 
-    congratsMusic = Mix_LoadMUS("shitass2.mp3");
+    congratsMusic = Mix_LoadMUS("newrec.mp3");
     if (!congratsMusic){
         std::cerr << "Failed to load congratulation music: " << Mix_GetError() << "\n";
     } else {
@@ -981,10 +982,27 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    //PNG Surface
+    startSurface = IMG_Load("startbg.png");
+    if (!startSurface) {
+        std::cerr << "Failed to load start PNG file: " << IMG_GetError() << "\n";
+    }
+
     //JPG textures
     gridBackground = IMG_LoadTexture(renderer, "gamegridbg.jpg");
     if (!gridBackground) {
         std::cerr << "Failed to load grid background: " << IMG_GetError() << std::endl;
+    }
+
+    optionBackground = IMG_LoadTexture(renderer, "optionsbg.jpg");
+    if (!optionBackground) {
+        std::cerr << "Failed to load option background: " << IMG_GetError() << std::endl;
+    }
+
+    startBackground = SDL_CreateTextureFromSurface(renderer, startSurface);
+    SDL_FreeSurface(startSurface);
+    if (!startBackground) {
+        std::cerr << "Failed to load start background: " << SDL_GetError() << "\n";
     }
 
     recomputeLayout(window);
@@ -1265,6 +1283,8 @@ int main(int argc, char* argv[]) {
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_DestroyTexture(gridBackground);
+    SDL_DestroyTexture(optionBackground);
+    SDL_DestroyTexture(startBackground);
     Mix_FreeChunk(swipeSound);
     Mix_FreeChunk(gameOverSound);
     Mix_FreeMusic(congratsMusic);
@@ -1276,4 +1296,3 @@ int main(int argc, char* argv[]) {
     SDL_Quit();
     return 0;
 }
-
