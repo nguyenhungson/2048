@@ -41,10 +41,13 @@ int highscore = 0;
 int helpScrollOffset = 0;
 bool isFullscreen = false;
 
+//Music
+Mix_Music* bgMusic = nullptr;
+Mix_Music* gameWinMusic = nullptr;
+
 // Sound effect
 Mix_Chunk* swipeSound = nullptr;
 Mix_Chunk* gameOverSound = nullptr;
-Mix_Chunk* gameWinSound = nullptr;
 
 // Forward declarations for functions
 void loadHighscore();
@@ -338,7 +341,10 @@ void draw_sidebar(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_RenderFillRect(renderer, &sidebarRect);
     SDL_Color textColor = {0, 0, 0, 255};
 
-    std::string scoreText = "Score: " + std::to_string(score) + " + " + std::to_string(incrementscore);
+    std::string scoreText = "Score: " + std::to_string(score);
+    if (incrementscore){
+        scoreText += " + " + std::to_string(incrementscore);
+    }
     SDL_Surface* scoreSurface = TTF_RenderText_Solid(font, scoreText.c_str(), textColor);
     SDL_Texture* scoreTexture = SDL_CreateTextureFromSurface(renderer, scoreSurface);
     SDL_Rect scoreRect = { GAME_AREA_WIDTH + 10, 50, scoreSurface->w, scoreSurface->h };
@@ -835,7 +841,7 @@ void move_tiles(SDL_Keycode key) {
         if (is_game_won() && !lock2048) {
             if (!gameWon){
                 gameWon = true;
-                Mix_PlayChannel(-1, gameWinSound, 0);
+                Mix_PlayMusic(gameWinMusic, -1);
             }
         }
         if (is_game_over()) {
@@ -870,11 +876,18 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    Mix_Music* bgMusic = Mix_LoadMUS("linga guli guli.mp3");
+    bgMusic = Mix_LoadMUS("linga guli guli.mp3");
     if (!bgMusic) {
         std::cerr << "Failed to load background music: " << Mix_GetError() << "\n";
     } else {
         Mix_PlayMusic(bgMusic, -1);
+    }
+
+    gameWinMusic = Mix_LoadMUS("congratulation.mp3");
+    if (!gameWinMusic){
+        std::cerr << "Failed to load game win music: " << Mix_GetError() << "\n";
+    } else {
+        Mix_VolumeMusic(musicVolume);
     }
 
     swipeSound = Mix_LoadWAV("duckquack.wav");
@@ -884,18 +897,11 @@ int main(int argc, char* argv[]) {
         Mix_VolumeChunk(swipeSound, sfxVolume);
     }
 
-    gameOverSound = Mix_LoadWAV("duckquack.wav");
+    gameOverSound = Mix_LoadWAV("gameover.wav");
     if (!gameOverSound){
         std::cerr << "Failed to load game over sound effect: " << Mix_GetError() << "\n";
     } else {
         Mix_VolumeChunk(gameOverSound, sfxVolume);
-    }
-
-    gameWinSound = Mix_LoadWAV("duckquack.wav");
-    if (!gameWinSound){
-        std::cerr << "Failed to load game win sound effect: " << Mix_GetError() << "\n";
-    } else {
-        Mix_VolumeChunk(gameWinSound, sfxVolume);
     }
 
     SDL_Window* window = SDL_CreateWindow(
@@ -1117,6 +1123,10 @@ int main(int argc, char* argv[]) {
                         if (mouseX >= continueBtn.x && mouseX <= continueBtn.x + continueBtn.w &&
                             mouseY >= continueBtn.y && mouseY <= continueBtn.y + continueBtn.h) {
                             lock2048 = true;  // Lock further merging of 2048 tiles.
+                            Mix_HaltMusic();
+                            if (!bgMusic){
+                                Mix_PlayMusic(bgMusic, -1);
+                            }
                             gameWon = false;
                             continue;
                         } else if (mouseX >= restartBtn.x && mouseX <= restartBtn.x + restartBtn.w &&
@@ -1197,7 +1207,7 @@ int main(int argc, char* argv[]) {
     SDL_DestroyWindow(window);
     Mix_FreeChunk(swipeSound);
     Mix_FreeChunk(gameOverSound);
-    Mix_FreeChunk(gameWinSound);
+    Mix_FreeMusic(gameWinMusic);
     Mix_FreeMusic(bgMusic);
     Mix_CloseAudio();
     IMG_Quit();
