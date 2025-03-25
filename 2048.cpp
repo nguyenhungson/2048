@@ -35,6 +35,7 @@ const int DEFAULT_SFX_VOLUME = 100;
 int musicVolume = DEFAULT_VOLUME;
 int sfxVolume = DEFAULT_SFX_VOLUME;
 
+int incrementscore = 0;
 int score = 0;
 int highscore = 0;
 int helpScrollOffset = 0;
@@ -337,7 +338,7 @@ void draw_sidebar(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_RenderFillRect(renderer, &sidebarRect);
     SDL_Color textColor = {0, 0, 0, 255};
 
-    std::string scoreText = "Score: " + std::to_string(score);
+    std::string scoreText = "Score: " + std::to_string(score) + " + " + std::to_string(incrementscore);
     SDL_Surface* scoreSurface = TTF_RenderText_Solid(font, scoreText.c_str(), textColor);
     SDL_Texture* scoreTexture = SDL_CreateTextureFromSurface(renderer, scoreSurface);
     SDL_Rect scoreRect = { GAME_AREA_WIDTH + 10, 50, scoreSurface->w, scoreSurface->h };
@@ -720,6 +721,7 @@ bool is_game_won() {
 }
 
 void move_tiles(SDL_Keycode key) {
+    incrementscore = 0;
     bool moved = false;
     switch (key) {
         case SDLK_UP:
@@ -738,6 +740,7 @@ void move_tiles(SDL_Keycode key) {
                                 // Do not merge 2048 if locked.
                             } else {
                                 grid[k - 1][j] *= 2;
+                                incrementscore += grid[k - 1][j];
                                 score += grid[k - 1][j];
                                 grid[k][j] = 0;
                                 moved = true;
@@ -762,6 +765,7 @@ void move_tiles(SDL_Keycode key) {
                             if (grid[k][j] == 2048 && lock2048) {
                             } else {
                                 grid[k + 1][j] *= 2;
+                                incrementscore += grid[k + 1][j];
                                 score += grid[k + 1][j];
                                 grid[k][j] = 0;
                                 moved = true;
@@ -786,6 +790,7 @@ void move_tiles(SDL_Keycode key) {
                             if (grid[i][k] == 2048 && lock2048) {
                             } else {
                                 grid[i][k - 1] *= 2;
+                                incrementscore += grid[i][k - 1];
                                 score += grid[i][k - 1];
                                 grid[i][k] = 0;
                                 moved = true;
@@ -810,6 +815,7 @@ void move_tiles(SDL_Keycode key) {
                             if (grid[i][k] == 2048 && lock2048) {
                             } else {
                                 grid[i][k + 1] *= 2;
+                                incrementscore += grid[j][k + 1];
                                 score += grid[i][k + 1];
                                 grid[i][k] = 0;
                                 moved = true;
@@ -878,14 +884,14 @@ int main(int argc, char* argv[]) {
         Mix_VolumeChunk(swipeSound, sfxVolume);
     }
 
-    gameOverSound = Mix_LoadWAV();
+    gameOverSound = Mix_LoadWAV("duckquack.wav");
     if (!gameOverSound){
         std::cerr << "Failed to load game over sound effect: " << Mix_GetError() << "\n";
     } else {
         Mix_VolumeChunk(gameOverSound, sfxVolume);
     }
 
-    gameWinSound = Mix_LoadWAV();
+    gameWinSound = Mix_LoadWAV("duckquack.wav");
     if (!gameWinSound){
         std::cerr << "Failed to load game win sound effect: " << Mix_GetError() << "\n";
     } else {
@@ -1191,7 +1197,7 @@ int main(int argc, char* argv[]) {
     SDL_DestroyWindow(window);
     Mix_FreeChunk(swipeSound);
     Mix_FreeChunk(gameOverSound);
-    Mix_FreeChunk(winSound);
+    Mix_FreeChunk(gameWinSound);
     Mix_FreeMusic(bgMusic);
     Mix_CloseAudio();
     IMG_Quit();
