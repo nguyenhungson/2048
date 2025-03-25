@@ -28,6 +28,7 @@ bool showHelp = false;
 bool showOptions = false;
 bool showCredits = false;
 bool newHighscoreAchieved = false;
+bool isFullscreen = false;
 std::map<int, SDL_Texture*> fruitTextures;
 
 // Volume settings (range 0–100)
@@ -36,25 +37,29 @@ const int DEFAULT_SFX_VOLUME = 100;
 int musicVolume = DEFAULT_VOLUME;
 int sfxVolume = DEFAULT_SFX_VOLUME;
 
+//Global game data
 int incrementscore = 0;
 int score = 0;
 int highscore = 0;
 int helpScrollOffset = 0;
-bool isFullscreen = false;
 
 //Music
 Mix_Music* bgMusic = nullptr;
+Mix_Music* congratsMusic = nullptr;
 Mix_Music* gameWinMusic = nullptr;
 
 // Sound effect
-Mix_Chunk* congratsSound = nullptr;
 Mix_Chunk* swipeSound = nullptr;
 Mix_Chunk* gameOverSound = nullptr;
+
+// Game pictures
+SDL_Texture* gridBackground = nullptr;
 
 // Forward declarations for functions
 void loadHighscore();
 void saveHighscore();
 void verifyFiles();
+void MusicFinishedCallback();
 void loadTextures(SDL_Renderer* renderer);
 void recomputeLayout(SDL_Window* window);
 void draw_start_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font* smallFont);
@@ -72,7 +77,6 @@ bool is_game_won();
 void move_tiles(SDL_Keycode key);
 
 // Function definitions
-
 void loadHighscore() {
     std::ifstream infile("highscore.txt");
     if (infile.is_open()) {
@@ -93,6 +97,13 @@ void saveHighscore() {
 
 void verifyFiles() {
     // Assume required files exist.
+}
+
+void MusicFinishedCallback() {
+    // Restart background music after the win music ends.
+    if (bgMusic) {
+        Mix_PlayMusic(bgMusic, -1);
+    }
 }
 
 void loadTextures(SDL_Renderer* renderer) {
@@ -400,16 +411,16 @@ void draw_sidebar(SDL_Renderer* renderer, TTF_Font* font) {
 }
 
 void draw_grid(SDL_Renderer* renderer, TTF_Font* font) {
-    SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
+    if (gridBackground) {
+        SDL_Rect destRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
+        SDL_RenderCopy(renderer, gridBackground, NULL, &destRect);
+    }
     for (int i = 0; i < GRID_SIZE; i++) {
         for (int j = 0; j < GRID_SIZE; j++) {
             int value = grid[i][j];
             SDL_Rect rect = { j * TILE_SIZE, i * TILE_SIZE, TILE_SIZE, TILE_SIZE };
-            SDL_SetRenderDrawColor(renderer, 205, 193, 180, 255);
-            SDL_RenderFillRect(renderer, &rect);
-            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-            SDL_RenderDrawRect(renderer, &rect);
             if (value != 0 && fruitTextures.count(value)) {
                 SDL_Texture* tex = fruitTextures[value];
                 SDL_Rect destRect = { rect.x, rect.y, TILE_SIZE, TILE_SIZE };
@@ -857,8 +868,9 @@ void move_tiles(SDL_Keycode key) {
             saveHighscore();
             if (!newHighscoreAchieved) {
                 newHighscoreAchieved = true;
-                if (congratsSound) {
-                    Mix_PlayChannel(-1, congratsSound, 0);
+                if (congratsMusic) {
+                    Mix_HookMusicFinished(MusicFinishedCallback);
+                    Mix_PlayMusic(congratsMusic, 1);
                 }
             }
         }
@@ -900,10 +912,13 @@ int main(int argc, char* argv[]) {
         SDL_Quit();
         return 1;
     }
-
+    //Music
     bgMusic = Mix_LoadMUS("linga guli guli.mp3");
     if (!bgMusic) {
         std::cerr << "Failed to load background music: " << Mix_GetError() << "\n";
+    } else {
+        Mix_VolumeMusic(musicVolume);
+        Mix_PlayMusic(bgMusic, -1);
     }
 
     gameWinMusic = Mix_LoadMUS("congratulation.mp3");
@@ -913,13 +928,13 @@ int main(int argc, char* argv[]) {
         Mix_VolumeMusic(musicVolume);
     }
 
-    congratsSound = Mix_LoadWAV("shitass2.mp3");
-    if (!congratsSound){
-        std::cerr << "Failed to load congratulation sound effect: " << Mix_GetError() << "\n";
+    congratsMusic = Mix_LoadMUS("shitass2.mp3");
+    if (!congratsMusic){
+        std::cerr << "Failed to load congratulation music: " << Mix_GetError() << "\n";
     } else {
-        Mix_VolumeChunk(congratsSound, sfxVolume);
+        Mix_VolumeMusic(musicVolume);
     }
-
+    //Sound effect
     swipeSound = Mix_LoadWAV("switch.wav");
     if (!swipeSound) {
         std::cerr << "Failed to load swipe sound effect: " << Mix_GetError() << "\n";
@@ -964,6 +979,12 @@ int main(int argc, char* argv[]) {
         TTF_Quit();
         SDL_Quit();
         return 1;
+    }
+
+    //JPG textures
+    gridBackground = IMG_LoadTexture(renderer, "gamegridbg.jpg");
+    if (!gridBackground) {
+        std::cerr << "Failed to load grid background: " << IMG_GetError() << std::endl;
     }
 
     recomputeLayout(window);
@@ -1243,8 +1264,10 @@ int main(int argc, char* argv[]) {
     TTF_CloseFont(smallFont);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    SDL_DestroyTexture(gridBackground);
     Mix_FreeChunk(swipeSound);
     Mix_FreeChunk(gameOverSound);
+    Mix_FreeMusic(congratsMusic);
     Mix_FreeMusic(gameWinMusic);
     Mix_FreeMusic(bgMusic);
     Mix_CloseAudio();
