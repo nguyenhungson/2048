@@ -22,11 +22,13 @@ int TILE_SIZE;
 int grid[GRID_SIZE][GRID_SIZE] = {0};
 bool gameStarted = false;
 bool gameOver = false;
-bool gameWon = false;      // When a 2048 tile is created
-bool lock2048 = false;     // When true, 2048 tiles cannot merge further after winning
+bool gameWon = false;
+bool lock2048 = false;
 bool showHelp = false;
 bool showOptions = false;
 bool showCredits = false;
+bool newHighscoreAchieved = false;
+bool isFullscreen = false;
 std::map<int, SDL_Texture*> fruitTextures;
 
 // Volume settings (range 0–100)
@@ -35,18 +37,34 @@ const int DEFAULT_SFX_VOLUME = 100;
 int musicVolume = DEFAULT_VOLUME;
 int sfxVolume = DEFAULT_SFX_VOLUME;
 
+//Global game data
+int incrementscore = 0;
 int score = 0;
 int highscore = 0;
 int helpScrollOffset = 0;
-bool isFullscreen = false;
 
-// Sound effect (swipe sound)
+//Music
+Mix_Music* bgMusic = nullptr;
+Mix_Music* congratsMusic = nullptr;
+Mix_Music* gameWinMusic = nullptr;
+
+// Sound effect
 Mix_Chunk* swipeSound = nullptr;
+Mix_Chunk* gameOverSound = nullptr;
+
+// Game backgrounds
+SDL_Texture* gridBackground = nullptr;
+SDL_Texture* optionBackground = nullptr;
+SDL_Texture* startBackground = nullptr;
+
+// Game surfaces
+SDL_Surface* startSurface = nullptr;
 
 // Forward declarations for functions
 void loadHighscore();
 void saveHighscore();
 void verifyFiles();
+void MusicFinishedCallback();
 void loadTextures(SDL_Renderer* renderer);
 void recomputeLayout(SDL_Window* window);
 void draw_start_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font* smallFont);
@@ -64,7 +82,6 @@ bool is_game_won();
 void move_tiles(SDL_Keycode key);
 
 // Function definitions
-
 void loadHighscore() {
     std::ifstream infile("highscore.txt");
     if (infile.is_open()) {
@@ -85,6 +102,13 @@ void saveHighscore() {
 
 void verifyFiles() {
     // Assume required files exist.
+}
+
+void MusicFinishedCallback() {
+    // Restart background music after the win music ends.
+    if (bgMusic) {
+        Mix_PlayMusic(bgMusic, -1);
+    }
 }
 
 void loadTextures(SDL_Renderer* renderer) {
@@ -133,32 +157,10 @@ void recomputeLayout(SDL_Window* window) {
 void draw_start_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font* smallFont) {
     SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
-    SDL_Color textColor = {0, 0, 0, 255};
-
-    SDL_Surface* titleSurface = TTF_RenderText_Solid(titleFont, "2048", textColor);
-    SDL_Texture* titleTexture = SDL_CreateTextureFromSurface(renderer, titleSurface);
-    SDL_Rect titleRect = {
-        (WINDOW_WIDTH - titleSurface->w) / 2,
-        (WINDOW_HEIGHT / 3) - (titleSurface->h / 2),
-        titleSurface->w,
-        titleSurface->h
-    };
-    SDL_FreeSurface(titleSurface);
-    SDL_RenderCopy(renderer, titleTexture, NULL, &titleRect);
-    SDL_DestroyTexture(titleTexture);
-
-    SDL_Surface* startSurface = TTF_RenderText_Solid(smallFont, "Press any key to start", textColor);
-    SDL_Texture* startTexture = SDL_CreateTextureFromSurface(renderer, startSurface);
-    SDL_Rect startRect = {
-        (WINDOW_WIDTH - startSurface->w) / 2,
-        titleRect.y + titleRect.h + 50,
-        startSurface->w,
-        startSurface->h
-    };
-    SDL_FreeSurface(startSurface);
-    SDL_RenderCopy(renderer, startTexture, NULL, &startRect);
-    SDL_DestroyTexture(startTexture);
-
+    if (startBackground) {
+        SDL_Rect destRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
+        SDL_RenderCopy(renderer, startBackground, NULL, &destRect);
+    }
     SDL_RenderPresent(renderer);
 }
 
@@ -336,6 +338,9 @@ void draw_sidebar(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_Color textColor = {0, 0, 0, 255};
 
     std::string scoreText = "Score: " + std::to_string(score);
+    if (incrementscore){
+        scoreText += " + " + std::to_string(incrementscore);
+    }
     SDL_Surface* scoreSurface = TTF_RenderText_Solid(font, scoreText.c_str(), textColor);
     SDL_Texture* scoreTexture = SDL_CreateTextureFromSurface(renderer, scoreSurface);
     SDL_Rect scoreRect = { GAME_AREA_WIDTH + 10, 50, scoreSurface->w, scoreSurface->h };
@@ -350,6 +355,20 @@ void draw_sidebar(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_FreeSurface(highSurface);
     SDL_RenderCopy(renderer, highTexture, NULL, &highRect);
     SDL_DestroyTexture(highTexture);
+
+    if (newHighscoreAchieved) {
+        std::string congratsMsg = "Congratulations!";
+        SDL_Surface* congratsSurface = TTF_RenderText_Solid(font, congratsMsg.c_str(), textColor);
+        if (congratsSurface) {
+            SDL_Texture* congratsTexture = SDL_CreateTextureFromSurface(renderer, congratsSurface);
+            // Position the message just below the highscore text.
+            SDL_Rect congratsRect = {GAME_AREA_WIDTH + 10, 100 + congratsSurface->h + 10,
+                                 congratsSurface->w, congratsSurface->h};
+            SDL_FreeSurface(congratsSurface);
+            SDL_RenderCopy(renderer, congratsTexture, NULL, &congratsRect);
+            SDL_DestroyTexture(congratsTexture);
+        }
+    }
 
     // Draw Options button.
     SDL_Rect optionButtonRect = { GAME_AREA_WIDTH + 10, WINDOW_HEIGHT - 60, SIDEBAR_WIDTH - 20, 50 };
@@ -375,16 +394,16 @@ void draw_sidebar(SDL_Renderer* renderer, TTF_Font* font) {
 }
 
 void draw_grid(SDL_Renderer* renderer, TTF_Font* font) {
-    SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
+    if (gridBackground) {
+        SDL_Rect destRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
+        SDL_RenderCopy(renderer, gridBackground, NULL, &destRect);
+    }
     for (int i = 0; i < GRID_SIZE; i++) {
         for (int j = 0; j < GRID_SIZE; j++) {
             int value = grid[i][j];
             SDL_Rect rect = { j * TILE_SIZE, i * TILE_SIZE, TILE_SIZE, TILE_SIZE };
-            SDL_SetRenderDrawColor(renderer, 205, 193, 180, 255);
-            SDL_RenderFillRect(renderer, &rect);
-            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-            SDL_RenderDrawRect(renderer, &rect);
             if (value != 0 && fruitTextures.count(value)) {
                 SDL_Texture* tex = fruitTextures[value];
                 SDL_Rect destRect = { rect.x, rect.y, TILE_SIZE, TILE_SIZE };
@@ -399,35 +418,39 @@ void draw_grid(SDL_Renderer* renderer, TTF_Font* font) {
 void draw_help_screen(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
+    if (optionBackground) {
+        SDL_Rect destRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
+        SDL_RenderCopy(renderer, optionBackground, NULL, &destRect);
+    }
     SDL_Color textColor = {0, 0, 0, 255};
     std::string instructions[] = {
-        "Welcome to 2048 Fruits!",
+        "                       Welcome to 2048 Fruits!",
         "",
-        "Objective:",
+        "* Objective:",
         "Combine matching fruit tiles by sliding them",
         "with the arrow keys. When two tiles with the",
         "same value collide, they merge into one with",
         "double the points. Reach the 2048 tile while",
         "achieving the highest score.",
         "",
-        "How to Play:",
+        "* How to Play:",
         "- Use arrow keys to move tiles.",
         "- Identical tiles merge to double points.",
         "- Game over when no moves remain.",
         "- Highscore is saved persistently.",
         "",
-        "Fruit to Points:",
-        "Apple: 2",
-        "Banana: 4",
-        "Dragonfruit: 8",
-        "Grape: 16",
-        "Mango: 32",
-        "Orange: 64",
-        "Peach: 128",
-        "Pineapple: 256",
-        "Pomegranate: 512",
-        "Strawberry: 1024",
-        "Watermelon: 2048",
+        "* Fruit to Points:",
+        "- Apple: 2",
+        "- Banana: 4",
+        "- Dragonfruit: 8",
+        "- Grape: 16",
+        "- Mango: 32",
+        "- Orange: 64",
+        "- Peach: 128",
+        "- Pineapple: 256",
+        "- Pomegranate: 512",
+        "- Strawberry: 1024",
+        "- Watermelon: 2048",
         ""
     };
     int lineHeight = TTF_FontLineSkip(font);
@@ -473,8 +496,12 @@ void draw_help_screen(SDL_Renderer* renderer, TTF_Font* font) {
 void draw_credits_screen(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
+    if (optionBackground) {
+        SDL_Rect destRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
+        SDL_RenderCopy(renderer, optionBackground, NULL, &destRect);
+    }
     SDL_Color textColor = {0, 0, 0, 255};
-    std::string credits = "Credits:\n\nDeveloped by Nguyen Hung Son";
+    std::string credits = "                                        Credits\n\n            Developed by MVPSON98 HARDSTUCK SILVER\n\n            PROPS TO DATSKII FOR THE LOVELY ARTWORK";
     SDL_Surface* creditSurface = TTF_RenderText_Blended_Wrapped(font, credits.c_str(), textColor, WINDOW_WIDTH - 40);
     if (creditSurface) {
         SDL_Texture* creditTexture = SDL_CreateTextureFromSurface(renderer, creditSurface);
@@ -507,6 +534,10 @@ void draw_credits_screen(SDL_Renderer* renderer, TTF_Font* font) {
 void draw_options_screen(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
+    if (optionBackground) {
+        SDL_Rect destRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
+        SDL_RenderCopy(renderer, optionBackground, NULL, &destRect);
+    }
     SDL_Color textColor = {0, 0, 0, 255};
 
     // Title "Options"
@@ -679,6 +710,7 @@ void add_random_tile() {
 void initialize_grid() {
     srand(time(0));
     score = 0;
+    newHighscoreAchieved = false;
     for (int i = 0; i < GRID_SIZE; i++)
         for (int j = 0; j < GRID_SIZE; j++)
             grid[i][j] = 0;
@@ -708,7 +740,6 @@ bool is_game_over() {
     return true;
 }
 
-
 bool is_game_won() {
     for (int i = 0; i < GRID_SIZE; i++)
         for (int j = 0; j < GRID_SIZE; j++)
@@ -718,6 +749,7 @@ bool is_game_won() {
 }
 
 void move_tiles(SDL_Keycode key) {
+    incrementscore = 0;
     bool moved = false;
     switch (key) {
         case SDLK_UP:
@@ -736,6 +768,7 @@ void move_tiles(SDL_Keycode key) {
                                 // Do not merge 2048 if locked.
                             } else {
                                 grid[k - 1][j] *= 2;
+                                incrementscore += grid[k - 1][j];
                                 score += grid[k - 1][j];
                                 grid[k][j] = 0;
                                 moved = true;
@@ -760,6 +793,7 @@ void move_tiles(SDL_Keycode key) {
                             if (grid[k][j] == 2048 && lock2048) {
                             } else {
                                 grid[k + 1][j] *= 2;
+                                incrementscore += grid[k + 1][j];
                                 score += grid[k + 1][j];
                                 grid[k][j] = 0;
                                 moved = true;
@@ -784,6 +818,7 @@ void move_tiles(SDL_Keycode key) {
                             if (grid[i][k] == 2048 && lock2048) {
                             } else {
                                 grid[i][k - 1] *= 2;
+                                incrementscore += grid[i][k - 1];
                                 score += grid[i][k - 1];
                                 grid[i][k] = 0;
                                 moved = true;
@@ -808,6 +843,7 @@ void move_tiles(SDL_Keycode key) {
                             if (grid[i][k] == 2048 && lock2048) {
                             } else {
                                 grid[i][k + 1] *= 2;
+                                incrementscore += grid[j][k + 1];
                                 score += grid[i][k + 1];
                                 grid[i][k] = 0;
                                 moved = true;
@@ -819,13 +855,31 @@ void move_tiles(SDL_Keycode key) {
             break;
     }
     if (moved) {
+        Mix_PlayChannel(-1, swipeSound, 0);
         add_random_tile();
         if (score > highscore) {
             highscore = score;
             saveHighscore();
+            if (!newHighscoreAchieved) {
+                newHighscoreAchieved = true;
+                if (congratsMusic) {
+                    Mix_HookMusicFinished(MusicFinishedCallback);
+                    Mix_PlayMusic(congratsMusic, 1);
+                }
+            }
         }
         if (is_game_won() && !lock2048) {
-            gameWon = true;
+            if (!gameWon){
+                gameWon = true;
+                Mix_PlayMusic(gameWinMusic, -1);
+            }
+        }
+        if (is_game_over()) {
+            if (!gameOver) {
+                Mix_HaltMusic();
+                gameOver = true;
+                Mix_PlayChannel(-1, gameOverSound, 0);
+            }
         }
     }
 }
@@ -846,31 +900,60 @@ int main(int argc, char* argv[]) {
         SDL_Quit();
         return 1;
     }
-    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
-        std::cerr << "SDL_mixer could not initialize! SDL_mixer Error: " << Mix_GetError() << "\n";
+    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
+        std::cerr << "SDL_image init failed: " << IMG_GetError() << "\n";
         TTF_Quit();
         SDL_Quit();
         return 1;
     }
-
-    Mix_Music* bgMusic = Mix_LoadMUS("mouse repellent.mp3");
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        std::cerr << "SDL_mixer could not initialize! SDL_mixer Error: " << Mix_GetError() << "\n";
+        TTF_Quit();
+        SDL_Quit();
+        IMG_Quit();
+        return 1;
+    }
+    //Music
+    bgMusic = Mix_LoadMUS("linga guli guli.mp3");
     if (!bgMusic) {
         std::cerr << "Failed to load background music: " << Mix_GetError() << "\n";
     } else {
+        Mix_VolumeMusic(musicVolume);
         Mix_PlayMusic(bgMusic, -1);
     }
 
-    swipeSound = Mix_LoadWAV("duckquack.wav");
+    gameWinMusic = Mix_LoadMUS("congratulation.mp3");
+    if (!gameWinMusic){
+        std::cerr << "Failed to load game win music: " << Mix_GetError() << "\n";
+    } else {
+        Mix_VolumeMusic(musicVolume);
+    }
+
+    congratsMusic = Mix_LoadMUS("newrec.mp3");
+    if (!congratsMusic){
+        std::cerr << "Failed to load congratulation music: " << Mix_GetError() << "\n";
+    } else {
+        Mix_VolumeMusic(musicVolume);
+    }
+    //Sound effect
+    swipeSound = Mix_LoadWAV("switch.wav");
     if (!swipeSound) {
         std::cerr << "Failed to load swipe sound effect: " << Mix_GetError() << "\n";
     } else {
         Mix_VolumeChunk(swipeSound, sfxVolume);
     }
 
+    gameOverSound = Mix_LoadWAV("gameover.wav");
+    if (!gameOverSound){
+        std::cerr << "Failed to load game over sound effect: " << Mix_GetError() << "\n";
+    } else {
+        Mix_VolumeChunk(gameOverSound, sfxVolume);
+    }
+
     SDL_Window* window = SDL_CreateWindow(
         "2048 Fruits",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        1000, 700,
+        1100, 700,
         SDL_WINDOW_RESIZABLE
     );
     if (!window) {
@@ -897,6 +980,29 @@ int main(int argc, char* argv[]) {
         TTF_Quit();
         SDL_Quit();
         return 1;
+    }
+
+    //PNG Surface
+    startSurface = IMG_Load("startbg.png");
+    if (!startSurface) {
+        std::cerr << "Failed to load start PNG file: " << IMG_GetError() << "\n";
+    }
+
+    //JPG textures
+    gridBackground = IMG_LoadTexture(renderer, "gamegridbg.jpg");
+    if (!gridBackground) {
+        std::cerr << "Failed to load grid background: " << IMG_GetError() << std::endl;
+    }
+
+    optionBackground = IMG_LoadTexture(renderer, "optionsbg.jpg");
+    if (!optionBackground) {
+        std::cerr << "Failed to load option background: " << IMG_GetError() << std::endl;
+    }
+
+    startBackground = SDL_CreateTextureFromSurface(renderer, startSurface);
+    SDL_FreeSurface(startSurface);
+    if (!startBackground) {
+        std::cerr << "Failed to load start background: " << SDL_GetError() << "\n";
     }
 
     recomputeLayout(window);
@@ -1060,12 +1166,16 @@ int main(int argc, char* argv[]) {
                         }
                     }
                     else if (gameOver) {
+                        incrementscore = 0;
                         int btnWidth = 200, btnHeight2 = 50, spacing2 = 20;
                         int btnStartY = (WINDOW_HEIGHT / 4) + 100;
                         SDL_Rect restartBtn = { (WINDOW_WIDTH - btnWidth) / 2, btnStartY, btnWidth, btnHeight2 };
                         SDL_Rect quitBtn = { (WINDOW_WIDTH - btnWidth) / 2, btnStartY + btnHeight2 + spacing2, btnWidth, btnHeight2 };
                         if (mouseX >= restartBtn.x && mouseX <= restartBtn.x + restartBtn.w &&
                             mouseY >= restartBtn.y && mouseY <= restartBtn.y + restartBtn.h) {
+                            if (bgMusic){
+                                Mix_PlayMusic(bgMusic, -1);
+                            }
                             initialize_grid();
                             gameStarted = true;
                             gameOver = false;
@@ -1086,6 +1196,10 @@ int main(int argc, char* argv[]) {
                         if (mouseX >= continueBtn.x && mouseX <= continueBtn.x + continueBtn.w &&
                             mouseY >= continueBtn.y && mouseY <= continueBtn.y + continueBtn.h) {
                             lock2048 = true;  // Lock further merging of 2048 tiles.
+                            Mix_HaltMusic();
+                            if (bgMusic){
+                                Mix_PlayMusic(bgMusic, -1);
+                            }
                             gameWon = false;
                             continue;
                         } else if (mouseX >= restartBtn.x && mouseX <= restartBtn.x + restartBtn.w &&
@@ -1095,6 +1209,10 @@ int main(int argc, char* argv[]) {
                             gameOver = false;
                             lock2048 = false;
                             gameWon = false;
+                            Mix_HaltMusic();
+                            if (bgMusic){
+                                Mix_PlayMusic(bgMusic, -1);
+                            }
                             continue;
                         } else if (mouseX >= quitBtn.x && mouseX <= quitBtn.x + quitBtn.w &&
                                    mouseY >= quitBtn.y && mouseY <= quitBtn.y + quitBtn.h) {
@@ -1164,7 +1282,13 @@ int main(int argc, char* argv[]) {
     TTF_CloseFont(smallFont);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    SDL_DestroyTexture(gridBackground);
+    SDL_DestroyTexture(optionBackground);
+    SDL_DestroyTexture(startBackground);
     Mix_FreeChunk(swipeSound);
+    Mix_FreeChunk(gameOverSound);
+    Mix_FreeMusic(congratsMusic);
+    Mix_FreeMusic(gameWinMusic);
     Mix_FreeMusic(bgMusic);
     Mix_CloseAudio();
     IMG_Quit();
@@ -1172,4 +1296,3 @@ int main(int argc, char* argv[]) {
     SDL_Quit();
     return 0;
 }
-
