@@ -22,11 +22,12 @@ int TILE_SIZE;
 int grid[GRID_SIZE][GRID_SIZE] = {0};
 bool gameStarted = false;
 bool gameOver = false;
-bool gameWon = false;      // When a 2048 tile is created
-bool lock2048 = false;     // When true, 2048 tiles cannot merge further after winning
+bool gameWon = false;
+bool lock2048 = false;
 bool showHelp = false;
 bool showOptions = false;
 bool showCredits = false;
+bool newHighscoreAchieved = false;
 std::map<int, SDL_Texture*> fruitTextures;
 
 // Volume settings (range 0–100)
@@ -46,6 +47,7 @@ Mix_Music* bgMusic = nullptr;
 Mix_Music* gameWinMusic = nullptr;
 
 // Sound effect
+Mix_Chunk* congratsSound = nullptr;
 Mix_Chunk* swipeSound = nullptr;
 Mix_Chunk* gameOverSound = nullptr;
 
@@ -360,6 +362,20 @@ void draw_sidebar(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_RenderCopy(renderer, highTexture, NULL, &highRect);
     SDL_DestroyTexture(highTexture);
 
+    if (newHighscoreAchieved) {
+        std::string congratsMsg = "Congratulations!";
+        SDL_Surface* congratsSurface = TTF_RenderText_Solid(font, congratsMsg.c_str(), textColor);
+        if (congratsSurface) {
+            SDL_Texture* congratsTexture = SDL_CreateTextureFromSurface(renderer, congratsSurface);
+            // Position the message just below the highscore text.
+            SDL_Rect congratsRect = {GAME_AREA_WIDTH + 10, 100 + congratsSurface->h + 10,
+                                 congratsSurface->w, congratsSurface->h};
+            SDL_FreeSurface(congratsSurface);
+            SDL_RenderCopy(renderer, congratsTexture, NULL, &congratsRect);
+            SDL_DestroyTexture(congratsTexture);
+        }
+    }
+
     // Draw Options button.
     SDL_Rect optionButtonRect = { GAME_AREA_WIDTH + 10, WINDOW_HEIGHT - 60, SIDEBAR_WIDTH - 20, 50 };
     SDL_SetRenderDrawColor(renderer, 100, 200, 100, 255);
@@ -483,7 +499,7 @@ void draw_credits_screen(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
     SDL_Color textColor = {0, 0, 0, 255};
-    std::string credits = "Credits:\n\nDeveloped by Nguyen Hung Son";
+    std::string credits = "Credits:\n\nDeveloped by MVPSON98 HARDSTUCK SILVER";
     SDL_Surface* creditSurface = TTF_RenderText_Blended_Wrapped(font, credits.c_str(), textColor, WINDOW_WIDTH - 40);
     if (creditSurface) {
         SDL_Texture* creditTexture = SDL_CreateTextureFromSurface(renderer, creditSurface);
@@ -688,6 +704,7 @@ void add_random_tile() {
 void initialize_grid() {
     srand(time(0));
     score = 0;
+    newHighscoreAchieved = false;
     for (int i = 0; i < GRID_SIZE; i++)
         for (int j = 0; j < GRID_SIZE; j++)
             grid[i][j] = 0;
@@ -833,10 +850,17 @@ void move_tiles(SDL_Keycode key) {
             break;
     }
     if (moved) {
+        Mix_PlayChannel(-1, swipeSound, 0);
         add_random_tile();
         if (score > highscore) {
             highscore = score;
             saveHighscore();
+            if (!newHighscoreAchieved) {
+                newHighscoreAchieved = true;
+                if (congratsSound) {
+                    Mix_PlayChannel(-1, congratsSound, 0);
+                }
+            }
         }
         if (is_game_won() && !lock2048) {
             if (!gameWon){
@@ -846,6 +870,7 @@ void move_tiles(SDL_Keycode key) {
         }
         if (is_game_over()) {
             if (!gameOver) {
+                Mix_HaltMusic();
                 gameOver = true;
                 Mix_PlayChannel(-1, gameOverSound, 0);
             }
@@ -879,8 +904,6 @@ int main(int argc, char* argv[]) {
     bgMusic = Mix_LoadMUS("linga guli guli.mp3");
     if (!bgMusic) {
         std::cerr << "Failed to load background music: " << Mix_GetError() << "\n";
-    } else {
-        Mix_PlayMusic(bgMusic, -1);
     }
 
     gameWinMusic = Mix_LoadMUS("congratulation.mp3");
@@ -890,7 +913,14 @@ int main(int argc, char* argv[]) {
         Mix_VolumeMusic(musicVolume);
     }
 
-    swipeSound = Mix_LoadWAV("duckquack.wav");
+    congratsSound = Mix_LoadWAV("shitass2.mp3");
+    if (!congratsSound){
+        std::cerr << "Failed to load congratulation sound effect: " << Mix_GetError() << "\n";
+    } else {
+        Mix_VolumeChunk(congratsSound, sfxVolume);
+    }
+
+    swipeSound = Mix_LoadWAV("switch.wav");
     if (!swipeSound) {
         std::cerr << "Failed to load swipe sound effect: " << Mix_GetError() << "\n";
     } else {
@@ -1097,12 +1127,16 @@ int main(int argc, char* argv[]) {
                         }
                     }
                     else if (gameOver) {
+                        incrementscore = 0;
                         int btnWidth = 200, btnHeight2 = 50, spacing2 = 20;
                         int btnStartY = (WINDOW_HEIGHT / 4) + 100;
                         SDL_Rect restartBtn = { (WINDOW_WIDTH - btnWidth) / 2, btnStartY, btnWidth, btnHeight2 };
                         SDL_Rect quitBtn = { (WINDOW_WIDTH - btnWidth) / 2, btnStartY + btnHeight2 + spacing2, btnWidth, btnHeight2 };
                         if (mouseX >= restartBtn.x && mouseX <= restartBtn.x + restartBtn.w &&
                             mouseY >= restartBtn.y && mouseY <= restartBtn.y + restartBtn.h) {
+                            if (bgMusic){
+                                Mix_PlayMusic(bgMusic, -1);
+                            }
                             initialize_grid();
                             gameStarted = true;
                             gameOver = false;
@@ -1124,7 +1158,7 @@ int main(int argc, char* argv[]) {
                             mouseY >= continueBtn.y && mouseY <= continueBtn.y + continueBtn.h) {
                             lock2048 = true;  // Lock further merging of 2048 tiles.
                             Mix_HaltMusic();
-                            if (!bgMusic){
+                            if (bgMusic){
                                 Mix_PlayMusic(bgMusic, -1);
                             }
                             gameWon = false;
@@ -1136,6 +1170,10 @@ int main(int argc, char* argv[]) {
                             gameOver = false;
                             lock2048 = false;
                             gameWon = false;
+                            Mix_HaltMusic();
+                            if (bgMusic){
+                                Mix_PlayMusic(bgMusic, -1);
+                            }
                             continue;
                         } else if (mouseX >= quitBtn.x && mouseX <= quitBtn.x + quitBtn.w &&
                                    mouseY >= quitBtn.y && mouseY <= quitBtn.y + quitBtn.h) {
