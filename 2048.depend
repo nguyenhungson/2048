@@ -1,0 +1,14 @@
+# depslib dependency file v1.0
+1743064266 source:c:\users\tgpm\documents\ltnc\game\2048\main.cpp
+	<SDL.h>
+	<SDL_ttf.h>
+	<SDL_image.h>
+	<SDL_mixer.h>
+	<iostream>
+	<cstdlib>
+	<ctime>
+	<vector>
+	<sstream>
+	<map>
+	<fstream>
+
