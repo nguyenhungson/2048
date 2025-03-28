@@ -1,14 +1,72 @@
 # depslib dependency file v1.0
-1743064266 source:c:\users\tgpm\documents\ltnc\game\2048\main.cpp
+1743093324 source:c:\users\tgpm\documents\ltnc\game\2048\main.cpp
 	<SDL.h>
 	<SDL_ttf.h>
 	<SDL_image.h>
 	<SDL_mixer.h>
 	<iostream>
+	"audio.h"
+	"events.h"
+	"game.h"
+	"graphics.h"
+	"globals.h"
+	"textures.h"
+
+1743094595 source:c:\users\tgpm\documents\ltnc\game\2048\audio.cpp
+	"globals.h"
+	"audio.h"
+	<iostream>
+	<SDL_mixer.h>
+
+1743094595 c:\users\tgpm\documents\ltnc\game\2048\audio.h
+	<SDL_mixer.h>
+
+1743096014 source:c:\users\tgpm\documents\ltnc\game\2048\globals.cpp
+	"globals.h"
+
+1743096014 c:\users\tgpm\documents\ltnc\game\2048\globals.h
+	<SDL.h>
+	<SDL_mixer.h>
+	<map>
+
+1743095569 source:c:\users\tgpm\documents\ltnc\game\2048\events.cpp
+	"globals.h"
+	"events.h"
+	"audio.h"
+	"game.h"
+	"graphics.h"
+	"textures.h"
+	<SDL.h>
+
+1743093123 c:\users\tgpm\documents\ltnc\game\2048\events.h
+	<SDL.h>
+
+1743094595 c:\users\tgpm\documents\ltnc\game\2048\game.h
+	<SDL.h>
+
+1743096232 c:\users\tgpm\documents\ltnc\game\2048\graphics.h
+	<SDL.h>
+	<SDL_ttf.h>
+
+1743096014 c:\users\tgpm\documents\ltnc\game\2048\textures.h
+	<SDL.h>
+	<string>
+	<map>
+
+1743096014 source:c:\users\tgpm\documents\ltnc\game\2048\textures.cpp
+	"textures.h"
+	"globals.h"
+	<SDL_image.h>
+	<iostream>
+	<string>
+	<map>
+
+1743096084 source:c:\users\tgpm\documents\ltnc\game\2048\game.cpp
+	"game.h"
+	"globals.h"
+	"audio.h"
+	<iostream>
+	<fstream>
 	<cstdlib>
 	<ctime>
-	<vector>
-	<sstream>
-	<map>
-	<fstream>
 
