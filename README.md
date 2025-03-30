@@ -18,6 +18,4 @@ An UET AdvProg Project
 
 - doodle.ttf  https://www.1001fonts.com/your-doodle-font-font.html
 
-* Install these resources, add them in your c++ compiler, the dll file to the same file as the game exe file and press build and run
-
 Hope you enjoy the game ^^
