@@ -45,7 +45,7 @@ void add_random_blocker() {
     if (freezeActive){
         emptyCells = 1e7;
     }
-    int target = rand() % (emptyCells);
+    int target = rand() % (emptyCells + 10);
     for (int i = 0; i < GRID_SIZE; i++) {
         for (int j = 0; j < GRID_SIZE; j++) {
             if (grid[i][j] == 0 && target-- == 0) {
