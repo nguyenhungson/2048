@@ -3,6 +3,6 @@
 
 #include <SDL.h>
 
-bool processEvents(SDL_Window* window);
+bool processEvents(SDL_Window* window, SDL_Renderer* renderer);
 
 #endif // EVENTS_H

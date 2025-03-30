@@ -1,34 +1,38 @@
 #include "globals.h"
 #include "audio.h"
-#include <iostream> // For std::cerr
+#include "boosters.h"
+#include <iostream>
 #include <SDL_mixer.h>
-
-// Globals
-int musicVolume = 100;
-int sfxVolume   = 100;
-
-Mix_Music* bgMusic       = nullptr;
-Mix_Music* gameWinMusic  = nullptr;
-Mix_Music* congratsMusic = nullptr;
-
-Mix_Chunk* swipeSound    = nullptr;
-Mix_Chunk* gameOverSound = nullptr;
 
 bool initAudio()
 {
-    // Initialize SDL_mixer if not done yet by main (optional).
-    // Typically, you might do Mix_OpenAudio(...) in main, but you could do it here.
+    // Boosters SFX
+    hammerSound = Mix_LoadWAV("music and sfx/thorhammer.wav");
+    if (!hammerSound){
+        std::cerr << "Failed to load hammer sound: " << Mix_GetError() << "\n";
+    }
 
-    // Load your music and SFX files.
+    freezeSound = Mix_LoadWAV("music and sfx/freeze.wav");
+    if (!freezeSound){
+        std::cerr << "Failed to load freeze sound: " << Mix_GetError() << "\n";
+    }
+
+    tsunamiSound = Mix_LoadWAV("music and sfx/tsunami.wav");
+    if (!tsunamiSound){
+        std::cerr << "Failed to load tsunami sound: " << Mix_GetError() << "\n";
+    }
+
     bgMusic = Mix_LoadMUS("music and sfx/linga guli guli.mp3");
     if (!bgMusic) {
         std::cerr << "Failed to load bgMusic: " << Mix_GetError() << "\n";
         return false;
     }
+    else{
+        MusicFinishedCallback();
+    }
     gameWinMusic = Mix_LoadMUS("music and sfx/congratulation.mp3");
     if (!gameWinMusic) {
         std::cerr << "Failed to load gameWinMusic: " << Mix_GetError() << "\n";
-        // Not returning false here in case you want partial fallback.
     }
     congratsMusic = Mix_LoadMUS("music and sfx/newrec.mp3");
     if (!congratsMusic) {
@@ -43,23 +47,24 @@ bool initAudio()
         std::cerr << "Failed to load gameOverSound: " << Mix_GetError() << "\n";
     }
 
-    // Set default volumes.
     setMusicVolume(musicVolume);
     setSFXVolume(sfxVolume);
 
-    return true; // Indicate success (with partial loads if some are missing).
+    return true;
 }
 
 void cleanupAudio()
 {
+    if (hammerSound)     { Mix_FreeChunk(hammerSound);     hammerSound = nullptr; }
+    if (freezeSound)     { Mix_FreeChunk(freezeSound);     freezeSound = nullptr; }
+    if (tsunamiSound)    { Mix_FreeChunk(tsunamiSound);    tsunamiSound = nullptr; }
+
     if (bgMusic)         { Mix_FreeMusic(bgMusic);         bgMusic = nullptr; }
     if (gameWinMusic)    { Mix_FreeMusic(gameWinMusic);    gameWinMusic = nullptr; }
     if (congratsMusic)   { Mix_FreeMusic(congratsMusic);   congratsMusic = nullptr; }
 
     if (swipeSound)      { Mix_FreeChunk(swipeSound);      swipeSound = nullptr; }
     if (gameOverSound)   { Mix_FreeChunk(gameOverSound);   gameOverSound = nullptr; }
-
-    // Typically Mix_CloseAudio() is called in main cleanup if needed.
 }
 
 void MusicFinishedCallback() {
@@ -104,7 +109,6 @@ void playGameOverSFX()
 void setMusicVolume(int volume)
 {
     musicVolume = volume;
-    // SDL_mixer range for Mix_VolumeMusic is 0–128.
     int sdlVolume = (volume * 128) / 100;
     Mix_VolumeMusic(sdlVolume);
 }
@@ -112,7 +116,6 @@ void setMusicVolume(int volume)
 void setSFXVolume(int volume)
 {
     sfxVolume = volume;
-    // Also 0–128 for chunk volume.
     int sdlVolume = (volume * 128) / 100;
     if (swipeSound)    Mix_VolumeChunk(swipeSound, sdlVolume);
     if (gameOverSound) Mix_VolumeChunk(gameOverSound, sdlVolume);

@@ -1,28 +1,19 @@
+#include "boosters.h"
 #include "graphics.h"
 #include "globals.h"
-#include "game.h"      // for grid, score, etc.
-#include "textures.h"  // for background textures, fruit textures
+#include "game.h"
+#include "textures.h"
+#include "font.h"
 #include <SDL.h>
 #include <SDL_ttf.h>
+#include <ctime>
+#include <cstdlib>
 #include <string>
 #include <iostream>
 #include <map>
 #include <vector>
 #include <sstream>
-
-// If you store your textures in textures.cpp, you might need “extern” references here
-extern SDL_Texture* startBackground;
-extern SDL_Texture* gridBackground;
-extern SDL_Texture* optionBackground;
-extern SDL_Texture* cloudTexture;
-extern std::map<int, SDL_Texture*> fruitTextures;
-
-// Global layout variables (declared extern somewhere):
-extern int WINDOW_WIDTH;
-extern int WINDOW_HEIGHT;
-extern int GAME_AREA_WIDTH;
-extern int SIDEBAR_WIDTH;
-extern int TILE_SIZE;
+#include <iomanip>
 
 void recomputeLayout(SDL_Window* window)
 {
@@ -51,60 +42,15 @@ void draw_start_screen(SDL_Renderer* renderer)
     SDL_RenderClear(renderer);
 
     if (startBackground) {
-        SDL_Rect destRect = {0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
+        SDL_Rect destRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
         SDL_RenderCopy(renderer, startBackground, nullptr, &destRect);
     }
-    SDL_RenderPresent(renderer);
-}
-
-void draw_sidebar(SDL_Renderer* renderer, TTF_Font* font) {
-    SDL_Rect sidebarRect = { GAME_AREA_WIDTH, 0, SIDEBAR_WIDTH, WINDOW_HEIGHT };
-    SDL_SetRenderDrawColor(renderer, 150, 150, 150, 255);
-    SDL_RenderFillRect(renderer, &sidebarRect);
-    SDL_Color textColor = {0, 0, 0, 255};
-
-    std::string scoreText = "Score: " + std::to_string(score);
-    if (incrementscore)
-        scoreText += " + " + std::to_string(incrementscore);
-    SDL_Surface* scoreSurface = TTF_RenderText_Solid(font, scoreText.c_str(), textColor);
-    SDL_Texture* scoreTexture = SDL_CreateTextureFromSurface(renderer, scoreSurface);
-    SDL_Rect scoreRect = { GAME_AREA_WIDTH + 10, 50, scoreSurface->w, scoreSurface->h };
-    SDL_FreeSurface(scoreSurface);
-    SDL_RenderCopy(renderer, scoreTexture, NULL, &scoreRect);
-    SDL_DestroyTexture(scoreTexture);
-
-    std::string highscoreText = "Highscore: " + std::to_string(highscore);
-    SDL_Surface* highSurface = TTF_RenderText_Solid(font, highscoreText.c_str(), textColor);
-    SDL_Texture* highTexture = SDL_CreateTextureFromSurface(renderer, highSurface);
-    SDL_Rect highRect = { GAME_AREA_WIDTH + 10, 100, highSurface->w, highSurface->h };
-    SDL_FreeSurface(highSurface);
-    SDL_RenderCopy(renderer, highTexture, NULL, &highRect);
-    SDL_DestroyTexture(highTexture);
-
-    if (newHighscoreAchieved) {
-        std::string congratsMsg = "Congratulations!";
-        SDL_Surface* congratsSurface = TTF_RenderText_Solid(font, congratsMsg.c_str(), textColor);
-        if (congratsSurface) {
-            SDL_Texture* congratsTexture = SDL_CreateTextureFromSurface(renderer, congratsSurface);
-            SDL_Rect congratsRect = { GAME_AREA_WIDTH + 10, 100 + congratsSurface->h + 10,
-                                      congratsSurface->w, congratsSurface->h };
-            SDL_FreeSurface(congratsSurface);
-            SDL_RenderCopy(renderer, congratsTexture, NULL, &congratsRect);
-            SDL_DestroyTexture(congratsTexture);
-        }
-    }
-
-    SDL_Rect optionButtonRect = { GAME_AREA_WIDTH + 10, WINDOW_HEIGHT - 60, SIDEBAR_WIDTH - 20, 50 };
-    drawCloudButtonWithText(renderer, cloudTexture, optionButtonRect, "Options", font);
 
     SDL_RenderPresent(renderer);
 }
 
-void draw_grid(SDL_Renderer* renderer, TTF_Font* font)
-{
-    // Clear screen, draw gridBackground if any, then draw the tiles
-    // Then draw sidebar
-    // Then SDL_RenderPresentSDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+void draw_grid(SDL_Renderer* renderer, TTF_Font* font) {
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
     if (gridBackground) {
         SDL_Rect destRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
@@ -114,57 +60,260 @@ void draw_grid(SDL_Renderer* renderer, TTF_Font* font)
         for (int j = 0; j < GRID_SIZE; j++) {
             int value = grid[i][j];
             SDL_Rect rect = { j * TILE_SIZE, i * TILE_SIZE, TILE_SIZE, TILE_SIZE };
-            if (value != 0 && fruitTextures.count(value)) {
+            if (value == BLOCKER_VALUE) {
+                if (blockerTexture) {
+                    SDL_RenderCopy(renderer, blockerTexture, NULL, &rect);
+                }
+            }
+            else if (value != 0 && fruitTextures.count(value)) {
                 SDL_Texture* tex = fruitTextures[value];
                 SDL_Rect destRect = { rect.x, rect.y, TILE_SIZE, TILE_SIZE };
                 SDL_RenderCopy(renderer, tex, NULL, &destRect);
             }
         }
     }
-    draw_sidebar(renderer, font);
+    draw_sidebar(renderer, valueFont, smallFont);
     SDL_RenderPresent(renderer);
 }
 
+void draw_sidebar(SDL_Renderer* renderer, TTF_Font* valueFont, TTF_Font* smallFont) {
+    SDL_Rect sidebarRect = { GAME_AREA_WIDTH, 0, SIDEBAR_WIDTH, WINDOW_HEIGHT };
+    if (sidebarBackground) {
+        SDL_RenderCopy(renderer, sidebarBackground, nullptr, &sidebarRect);
+    } else {
+        SDL_SetRenderDrawColor(renderer, 150, 150, 150, 255);
+        SDL_RenderFillRect(renderer, &sidebarRect);
+    }
+
+    SDL_Color textColor = {0, 0, 0, 255};
+    SDL_Color incrementColor = {0, 255, 0, 255};
+
+    std::string scoreTitle = "Score";
+    SDL_Surface* scoreTitleSurface = TTF_RenderText_Solid(smallFont, scoreTitle.c_str(), textColor);
+    if (scoreTitleSurface) {
+        SDL_Texture* scoreTitleTexture = SDL_CreateTextureFromSurface(renderer, scoreTitleSurface);
+        int titleX = GAME_AREA_WIDTH + (SIDEBAR_WIDTH - scoreTitleSurface->w) / 2;
+        int titleY = 70;
+        SDL_Rect titleRect = { titleX, titleY, scoreTitleSurface->w, scoreTitleSurface->h };
+        SDL_RenderCopy(renderer, scoreTitleTexture, nullptr, &titleRect);
+        SDL_FreeSurface(scoreTitleSurface);
+        SDL_DestroyTexture(scoreTitleTexture);
+    }
+
+    if (scoreBackground) {
+        SDL_Rect scoreBgRect;
+        scoreBgRect.w = 300;
+        scoreBgRect.h = 70;
+        scoreBgRect.x = GAME_AREA_WIDTH + (SIDEBAR_WIDTH - scoreBgRect.w) / 2;
+        scoreBgRect.y = 120;
+        SDL_RenderCopy(renderer, scoreBackground, nullptr, &scoreBgRect);
+
+        if (incrementscore > 0) {
+            SDL_Surface* scoreSurface = TTF_RenderText_Solid(smallFont, std::to_string(score).c_str(), textColor);
+            SDL_Surface* incrementSurface = TTF_RenderText_Solid(smallFont, (" + " + std::to_string(incrementscore)).c_str(), incrementColor);
+            if (scoreSurface && incrementSurface) {
+                const int spacing = 0;
+                int totalWidth = scoreSurface->w + spacing + incrementSurface->w;
+                int startX = scoreBgRect.x + (scoreBgRect.w - totalWidth) / 2;
+                int scoreY = scoreBgRect.y + (scoreBgRect.h - scoreSurface->h) / 2;
+                int incrementY = scoreBgRect.y + (scoreBgRect.h - incrementSurface->h) / 2;
+
+                SDL_Texture* scoreTexture = SDL_CreateTextureFromSurface(renderer, scoreSurface);
+                SDL_Texture* incrementTexture = SDL_CreateTextureFromSurface(renderer, incrementSurface);
+                SDL_FreeSurface(scoreSurface);
+                SDL_FreeSurface(incrementSurface);
+
+                SDL_Rect scoreRect = { startX, scoreY, 0, 0 };
+                SDL_QueryTexture(scoreTexture, NULL, NULL, &scoreRect.w, &scoreRect.h);
+                SDL_Rect incrementRect = { startX + scoreRect.w + spacing, incrementY, 0, 0 };
+                SDL_QueryTexture(incrementTexture, NULL, NULL, &incrementRect.w, &incrementRect.h);
+
+                SDL_RenderCopy(renderer, scoreTexture, nullptr, &scoreRect);
+                SDL_RenderCopy(renderer, incrementTexture, nullptr, &incrementRect);
+
+                SDL_DestroyTexture(scoreTexture);
+                SDL_DestroyTexture(incrementTexture);
+            }
+        } else {
+            SDL_Surface* scoreSurface = TTF_RenderText_Solid(smallFont, std::to_string(score).c_str(), textColor);
+            if (scoreSurface) {
+                SDL_Texture* scoreTexture = SDL_CreateTextureFromSurface(renderer, scoreSurface);
+                SDL_Rect scoreRect = {
+                    scoreBgRect.x + (scoreBgRect.w - scoreSurface->w) / 2,
+                    scoreBgRect.y + (scoreBgRect.h - scoreSurface->h) / 2,
+                    scoreSurface->w,
+                    scoreSurface->h
+                };
+                SDL_FreeSurface(scoreSurface);
+                SDL_RenderCopy(renderer, scoreTexture, nullptr, &scoreRect);
+                SDL_DestroyTexture(scoreTexture);
+            }
+        }
+    }
+
+    std::string highTitle = "Highscore";
+    SDL_Surface* highTitleSurface = TTF_RenderText_Solid(smallFont, highTitle.c_str(), textColor);
+    if (highTitleSurface) {
+        SDL_Texture* highTitleTexture = SDL_CreateTextureFromSurface(renderer, highTitleSurface);
+        int highTitleX = GAME_AREA_WIDTH + (SIDEBAR_WIDTH - highTitleSurface->w) / 2;
+        int highTitleY = 200;
+        SDL_Rect highTitleRect = { highTitleX, highTitleY, highTitleSurface->w, highTitleSurface->h };
+        SDL_RenderCopy(renderer, highTitleTexture, nullptr, &highTitleRect);
+        SDL_FreeSurface(highTitleSurface);
+        SDL_DestroyTexture(highTitleTexture);
+    }
+
+    if (scoreBackground) {
+        SDL_Rect highBgRect;
+        highBgRect.w = 300;
+        highBgRect.h = 70;
+        highBgRect.x = GAME_AREA_WIDTH + (SIDEBAR_WIDTH - highBgRect.w) / 2;
+        highBgRect.y = 250;
+        SDL_RenderCopy(renderer, scoreBackground, nullptr, &highBgRect);
+
+        std::string highscoreText = std::to_string(highscore);
+        SDL_Surface* highSurface = TTF_RenderText_Solid(smallFont, highscoreText.c_str(), textColor);
+        if (highSurface) {
+            SDL_Texture* highTexture = SDL_CreateTextureFromSurface(renderer, highSurface);
+            SDL_Rect highRect;
+            highRect.w = highSurface->w;
+            highRect.h = highSurface->h;
+            highRect.x = highBgRect.x + (highBgRect.w - highSurface->w) / 2;
+            highRect.y = highBgRect.y + (highBgRect.h - highSurface->h) / 2;
+            SDL_RenderCopy(renderer, highTexture, nullptr, &highRect);
+            SDL_FreeSurface(highSurface);
+            SDL_DestroyTexture(highTexture);
+        }
+    }
+    if (boosterActive) {
+    // Calculate remaining time in the booster period.
+    Uint32 elapsed = SDL_GetTicks() - boosterStartTime;
+    Uint32 remaining = (elapsed < BOOSTER_DURATION) ? (BOOSTER_DURATION - elapsed) : 0;
+    // Calculate the width of the booster bar.
+    int fullBarWidth = 300;  // full width of the bar in pixels
+    int currentBarWidth = static_cast<int>((remaining / (float)BOOSTER_DURATION) * fullBarWidth);
+
+    // Define the booster bar rectangle.
+    SDL_Rect boosterBarRect = {
+        GAME_AREA_WIDTH + (SIDEBAR_WIDTH - fullBarWidth) / 2, // center horizontally in sidebar
+        400,    // vertical position (adjust as needed)
+        currentBarWidth,
+        30      // height of the bar
+    };
+    // Draw the filled part of the booster bar.
+    SDL_SetRenderDrawColor(renderer, 0, 225, 0, 255);
+    SDL_RenderFillRect(renderer, &boosterBarRect);
+    // Draw the border of the booster bar.
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderDrawRect(renderer, &boosterBarRect);
+
+    double secondsRemaining = remaining / 1000.0;
+
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(3) << secondsRemaining;
+    std::string timeStr = oss.str();
+
+    std::string boosterLabel = "Booster Active! x" + std::to_string(currentBooster.multiplier) +
+                               " (" + timeStr + "s)";
+    SDL_Surface* boosterLabelSurf = TTF_RenderText_Solid(boosterFont, boosterLabel.c_str(), textColor);
+    if (boosterLabelSurf) {
+        SDL_Texture* boosterLabelTex = SDL_CreateTextureFromSurface(renderer, boosterLabelSurf);
+        // Center the booster label above the booster bar.
+        SDL_Rect boosterLabelRect = {
+            GAME_AREA_WIDTH + (SIDEBAR_WIDTH - boosterLabelSurf->w) / 2,
+            boosterBarRect.y - boosterLabelSurf->h - 5,
+            boosterLabelSurf->w,
+            boosterLabelSurf->h
+        };
+        SDL_FreeSurface(boosterLabelSurf);
+        SDL_RenderCopy(renderer, boosterLabelTex, nullptr, &boosterLabelRect);
+        SDL_DestroyTexture(boosterLabelTex);
+    }
+}
+    if (newHighscoreAchieved && recordBackground) {
+        SDL_Rect congratsRect;
+        congratsRect.w = 250;
+        congratsRect.h = 150;
+        congratsRect.x = GAME_AREA_WIDTH + (SIDEBAR_WIDTH - congratsRect.w) / 2;
+        congratsRect.y = WINDOW_HEIGHT - 200;
+        SDL_RenderCopy(renderer, recordBackground, nullptr, &congratsRect);
+
+        std::string congratsMsg = "Congratulations!\nNew Record!";
+        SDL_Surface* congratsSurface = TTF_RenderText_Blended_Wrapped(valueFont, congratsMsg.c_str(), textColor, congratsRect.w - 10);
+        if (congratsSurface) {
+            SDL_Texture* congratsTexture = SDL_CreateTextureFromSurface(renderer, congratsSurface);
+            SDL_Rect congratsTextRect;
+            congratsTextRect.w = congratsSurface->w;
+            congratsTextRect.h = congratsSurface->h;
+            congratsTextRect.x = congratsRect.x + (congratsRect.w - congratsSurface->w) / 2 + 50;
+            congratsTextRect.y = congratsRect.y + (congratsRect.h - congratsSurface->h) / 2;
+            SDL_RenderCopy(renderer, congratsTexture, nullptr, &congratsTextRect);
+            SDL_FreeSurface(congratsSurface);
+            SDL_DestroyTexture(congratsTexture);
+        }
+        if (newHighscoreAchieved && (SDL_GetTicks() - newHighscoreTime >= 5000)) {
+            newHighscoreAchieved = false;
+        }
+    }
+    drawBoosterIcons(renderer);
+    if (freezeActive) {
+        drawFreezeBoosterDuration(renderer, boosterFont);
+    }
+    SDL_Rect optionButtonRect = { GAME_AREA_WIDTH + 10, WINDOW_HEIGHT - 60, SIDEBAR_WIDTH - 20, 50 };
+    drawCloudButtonWithText(renderer, cloudTexture, optionButtonRect, "Options", smallFont);
+
+    SDL_RenderPresent(renderer);
+}
+
+
 void draw_help_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font* smallFont)
 {
-    // Clear, draw optionBackground, draw instructions, draw “Close” as cloud
-    // SDL_RenderPresentSDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
     if (optionBackground) {
         SDL_Rect destRect = {0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
         SDL_RenderCopy(renderer, optionBackground, NULL, &destRect);
     }
     SDL_Color textColor = {0, 0, 0, 255};
-
-    // Render title (scrolls with the paragraph).
     std::vector<std::pair<std::string, TTF_Font*>> lines;
+
     lines.push_back({ "Welcome to 2048 Fruits!", titleFont });
-    lines.push_back({ "", smallFont });
+    lines.push_back({ "", smallFont }); // Empty line for spacing
+
+    // Objective Section
     lines.push_back({ "* Objective:", smallFont });
-    lines.push_back({ "Combine matching fruit tiles by sliding them", smallFont });
-    lines.push_back({ "with the arrow keys. When two tiles with the", smallFont });
-    lines.push_back({ "same value collide, they merge into one with", smallFont });
-    lines.push_back({ "double the points. Reach the 2048 tile while", smallFont });
-    lines.push_back({ "achieving the highest score.", smallFont });
+    lines.push_back({ "Merge matching fruit tiles by sliding them", smallFont });
+    lines.push_back({ "with the arrow keys. The goal is to reach", smallFont });
+    lines.push_back({ "the highest possible score.", smallFont });
     lines.push_back({ "", smallFont });
+
+    // How to Play Section
     lines.push_back({ "* How to Play:", smallFont });
-    lines.push_back({ "- Use arrow keys to move tiles.", smallFont });
-    lines.push_back({ "- Identical tiles merge to double points.", smallFont });
-    lines.push_back({ "- Game over when no moves remain.", smallFont });
-    lines.push_back({ "- Highscore is saved persistently.", smallFont });
+    lines.push_back({ "- Use arrow keys (Up, Down, Left, Right) to slide tiles.", smallFont });
+    lines.push_back({ "- Identical tiles merge to form higher values.", smallFont });
+    lines.push_back({ "- Game ends when no moves remain.", smallFont });
+    lines.push_back({ "- Highscore is saved automatically.", smallFont });
     lines.push_back({ "", smallFont });
+
+    // Boosters Section
+    lines.push_back({ "* Boosters:", smallFont });
+    lines.push_back({ "- Hammer: Destroy any tile instantly.", smallFont });
+    lines.push_back({ "- Freeze: Temporarily stop blockers production.", smallFont });
+    lines.push_back({ "- Tsunami: Wipe all tiles.", smallFont });
+    lines.push_back({ "", smallFont });
+
+    // Fruit to Points Section
     lines.push_back({ "* Fruit to Points:", smallFont });
-    lines.push_back({ "- Apple: 2", smallFont });
-    lines.push_back({ "- Banana: 4", smallFont });
-    lines.push_back({ "- Dragonfruit: 8", smallFont });
-    lines.push_back({ "- Grape: 16", smallFont });
-    lines.push_back({ "- Mango: 32", smallFont });
-    lines.push_back({ "- Orange: 64", smallFont });
-    lines.push_back({ "- Peach: 128", smallFont });
-    lines.push_back({ "- Pineapple: 256", smallFont });
-    lines.push_back({ "- Pomegranate: 512", smallFont });
-    lines.push_back({ "- Strawberry: 1024", smallFont });
-    lines.push_back({ "- Watermelon: 2048", smallFont });
+    lines.push_back({ "- Apple: 2 points", smallFont });
+    lines.push_back({ "- Banana: 4 points", smallFont });
+    lines.push_back({ "- Grape: 8 points", smallFont });
+    lines.push_back({ "- Mango: 16 points", smallFont });
+    lines.push_back({ "- Orange: 32 points", smallFont });
+    lines.push_back({ "- Peach: 64 points", smallFont });
+    lines.push_back({ "- Pineapple: 128 points", smallFont });
+    lines.push_back({ "- Watermelon: 256 points", smallFont });
+    lines.push_back({ "- Strawberry: 512 points", smallFont });
+    lines.push_back({ "- Cherry: 1024 points", smallFont });
+    lines.push_back({ "- Coconut: 2048 points", smallFont });
     lines.push_back({ "", smallFont });
 
     int totalHeight = 0;
@@ -199,8 +348,6 @@ void draw_credits_screen(SDL_Renderer* renderer,
                          TTF_Font* smallFont,
                          TTF_Font* buttonFont)
 {
-    // Clear, draw optionBackground, draw “Credits” text, draw back cloud
-    // SDL_RenderPresentSDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
     if (optionBackground) {
         SDL_Rect bgRect = {0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
@@ -218,7 +365,7 @@ void draw_credits_screen(SDL_Renderer* renderer,
         SDL_DestroyTexture(titleTexture);
     }
 
-    std::string creditsText = "Developed by MVPSON98 HARDSTUCK SILVER\n\nPROPS TO DATSKII FOR THE LOVELY ARTWORK";
+    std::string creditsText = "Developed by MVPSON98 HARDSTUCK SILVER\n\n\nPROPS TO DATSKII FOR THE LOVELY ARTWORK";
     std::istringstream iss(creditsText);
     std::vector<std::string> lines;
     std::string line;
@@ -248,10 +395,6 @@ void draw_options_screen(SDL_Renderer* renderer,
                          TTF_Font* buttonFont,
                          TTF_Font* titleFont)
 {
-    // Clear, draw optionBackground, draw 4 cloud buttons (Help, Restart, Credits, Quit)
-    // Draw volume sliders
-    // Draw back button
-    // SDL_RenderPresentSDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
     if (optionBackground) {
         SDL_Rect bgRect = {0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
@@ -370,11 +513,24 @@ void draw_options_screen(SDL_Renderer* renderer,
 
 void draw_game_over_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font* smallFont)
 {
-    // Clear, “Game Over!”, “Your Score: x”, 2 buttons (Restart, Quit)
-    // SDL_RenderPresentSDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
+    SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
-    SDL_Color textColor = {0, 0, 0, 255};
 
+    if (optionBackground) {
+        SDL_Rect bgRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
+        SDL_RenderCopy(renderer, optionBackground, NULL, &bgRect);
+    }
+
+    if (currentGameoverIndex != 0 && gameoverTextures.count(currentGameoverIndex)) {
+        SDL_Rect sideRect;
+        sideRect.w = WINDOW_WIDTH / 4;
+        sideRect.h = WINDOW_HEIGHT / 3 + 50;
+        sideRect.x = WINDOW_WIDTH - sideRect.w - 50;
+        sideRect.y = WINDOW_HEIGHT / 3 - 20;
+        SDL_RenderCopy(renderer, gameoverTextures[currentGameoverIndex], nullptr, &sideRect);
+    }
+
+    SDL_Color textColor = {0, 0, 0, 255};
     SDL_Surface* gameOverSurface = TTF_RenderText_Solid(titleFont, "Game Over!", textColor);
     SDL_Texture* gameOverTexture = SDL_CreateTextureFromSurface(renderer, gameOverSurface);
     SDL_Rect gameOverRect = {
@@ -400,7 +556,7 @@ void draw_game_over_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font
     SDL_RenderCopy(renderer, resultTexture, NULL, &resultRect);
     SDL_DestroyTexture(resultTexture);
 
-    const int btnWidth = 200, btnHeight = 50, spacing = 20;
+    const int btnWidth = 200, btnHeight = 60, spacing = 20;
     int btnStartY = resultRect.y + resultRect.h + 30;
     SDL_Rect restartBtn = { (WINDOW_WIDTH - btnWidth) / 2, btnStartY, btnWidth, btnHeight };
     SDL_Rect quitBtn = { (WINDOW_WIDTH - btnWidth) / 2, btnStartY + btnHeight + spacing, btnWidth, btnHeight };
@@ -411,13 +567,32 @@ void draw_game_over_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font
     SDL_RenderPresent(renderer);
 }
 
+
 void draw_win_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font* smallFont)
 {
-    // Clear, “Congratulations!”, “Continue / Restart / Quit” buttons
-    // SDL_RenderPresentSDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
+    SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
     SDL_RenderClear(renderer);
-    SDL_Color textColor = {0, 0, 0, 255};
 
+    if (gamewonBackground) {
+        SDL_Rect bgRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
+        SDL_RenderCopy(renderer, gamewonBackground, NULL, &bgRect);
+    }
+    else if (optionBackground) {
+        SDL_Rect bgRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
+        SDL_RenderCopy(renderer, optionBackground, NULL, &bgRect);
+    }
+
+    if (!gamewinTextures.empty()) {
+        SDL_Rect sideRect;
+        sideRect.w = WINDOW_WIDTH / 4;
+        sideRect.h = WINDOW_HEIGHT / 3;
+        sideRect.x = WINDOW_WIDTH - sideRect.w - 50;
+        sideRect.y = WINDOW_HEIGHT / 3;
+        if (gamewinTextures.count(currentWinIndex))
+            SDL_RenderCopy(renderer, gamewinTextures[currentWinIndex], NULL, &sideRect);
+    }
+
+    SDL_Color textColor = {0, 0, 0, 255};
     SDL_Surface* winSurface = TTF_RenderText_Solid(titleFont, "Congratulations!", textColor);
     SDL_Texture* winTexture = SDL_CreateTextureFromSurface(renderer, winSurface);
     SDL_Rect winRect = {
@@ -443,14 +618,12 @@ void draw_win_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font* smal
     SDL_RenderCopy(renderer, winLineTex, NULL, &winLineRect);
     SDL_DestroyTexture(winLineTex);
 
-    const int btnWidth = 200, btnHeight = 50, spacing = 20;
+    const int btnWidth = 250, btnHeight = 70, spacing = 20;
     int btnStartY = winLineRect.y + winLineRect.h + 30;
     SDL_Rect continueBtn = { (WINDOW_WIDTH - btnWidth) / 2, btnStartY, btnWidth, btnHeight };
-    SDL_Rect restartBtn = { (WINDOW_WIDTH - btnWidth) / 2, btnStartY + btnHeight + spacing, btnWidth, btnHeight };
-    SDL_Rect quitBtn = { (WINDOW_WIDTH - btnWidth) / 2, btnStartY + 2 * (btnHeight + spacing), btnWidth, btnHeight };
+    SDL_Rect quitBtn     = { (WINDOW_WIDTH - btnWidth) / 2, btnStartY + (btnHeight + spacing), btnWidth, btnHeight };
 
     drawCloudButtonWithText(renderer, cloudTexture, continueBtn, "Continue", smallFont);
-    drawCloudButtonWithText(renderer, cloudTexture, restartBtn, "Restart", smallFont);
     drawCloudButtonWithText(renderer, cloudTexture, quitBtn, "Quit", smallFont);
 
     SDL_RenderPresent(renderer);
@@ -480,3 +653,5 @@ void drawCloudButtonWithText(SDL_Renderer* renderer, SDL_Texture* cloudTex, cons
         SDL_DestroyTexture(textTex);
     }
 }
+
+

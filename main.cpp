@@ -4,7 +4,9 @@
 #include <SDL_mixer.h>
 #include <iostream>
 #include "audio.h"
+#include "boosters.h"
 #include "events.h"
+#include "font.h"
 #include "game.h"
 #include "graphics.h"
 #include "globals.h"
@@ -12,7 +14,6 @@
 
 int main(int argc, char* argv[])
 {
-    // 1. Init SDL subsystems
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
         std::cerr << "SDL init failed: " << SDL_GetError() << "\n";
         return 1;
@@ -36,8 +37,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    // 2. Create window & renderer
-    SDL_Window* window = SDL_CreateWindow("2048 Fruits",
+    window = SDL_CreateWindow("2048 Fruits",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1100, 700, SDL_WINDOW_RESIZABLE);
     if (!window) {
         std::cerr << "Window creation failed: " << SDL_GetError() << "\n";
@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
         SDL_Quit();
         return 1;
     }
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1,
+    renderer = SDL_CreateRenderer(window, -1,
         SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!renderer) {
         std::cerr << "Renderer creation failed: " << SDL_GetError() << "\n";
@@ -59,68 +59,38 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    // 3. Load audio & textures
     if (!initAudio()) {
         std::cerr << "Some audio files failed to load.\n";
-        // You can choose to continue or quit
     }
     if (!loadAllTextures(renderer)) {
         std::cerr << "Some textures failed to load.\n";
     }
-
-    // 4. Open fonts
-    TTF_Font* titleFont   = TTF_OpenFont("doodle.ttf", 72);
-    TTF_Font* smallFont   = TTF_OpenFont("doodle.ttf", 42);
-    TTF_Font* buttonFont  = TTF_OpenFont("doodle.ttf", 36);
-    if (!titleFont || !smallFont || !buttonFont) {
-        std::cerr << "Font loading error: " << TTF_GetError() << "\n";
+    if (!initFont()){
+        std::cerr << "Some fonts failed to load.\n";
     }
 
-    // 5. Recompute layout, load highscore, init game
     recomputeLayout(window);
     loadHighscore();
-    // Optionally, start playing background music
-    playBackgroundMusic(); // from audio.cpp
+    loadBoosterTextures(renderer);
 
-    // 6. Main loop
     bool running = true;
     while (running) {
-        running = processEvents(window); // from events.cpp
+        running = processEvents(window, renderer);
+        if (boosterActive) {
+            Uint32 elapsed = SDL_GetTicks() - boosterStartTime;
+            if (elapsed >= currentBooster.duration) {
+                boosterActive = false;
+                std::cerr << "Booster expired." << std::endl;
+            }
+        }
         if (!running) {
-            break; // user wants to quit
-        }
-
-        // Render the appropriate screen (using global flags from events)
-        if (gameWon) {
-            draw_win_screen(renderer, titleFont, smallFont);
-        }
-        else if (showOptions) {
-            draw_options_screen(renderer, buttonFont, titleFont);
-        }
-        else if (showHelp) {
-            draw_help_screen(renderer, titleFont, smallFont);
-        }
-        else if (showCredits) {
-            draw_credits_screen(renderer, titleFont, smallFont, buttonFont);
-        }
-        else if (gameOver) {
-            draw_game_over_screen(renderer, titleFont, smallFont);
-        }
-        else if (!gameStarted) {
-            draw_start_screen(renderer);
-        }
-        else {
-            draw_grid(renderer, smallFont);
+            break;
         }
     }
 
-    // 7. Cleanup
-    TTF_CloseFont(titleFont);
-    TTF_CloseFont(smallFont);
-    TTF_CloseFont(buttonFont);
-
-    freeAllTextures(); // from textures.cpp
-    cleanupAudio();    // from audio.cpp
+    freeAllFont();
+    freeAllTextures();
+    cleanupAudio();
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);

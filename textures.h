@@ -5,7 +5,6 @@
 #include <string>
 #include <map>
 
-// Function prototypes for loading and cleaning up textures.
 bool loadAllTextures(SDL_Renderer* renderer);
 void freeAllTextures();
 

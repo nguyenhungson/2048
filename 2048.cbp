@@ -32,7 +32,24 @@
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 		</Compiler>
+		<Unit filename="audio.cpp" />
+		<Unit filename="audio.h" />
+		<Unit filename="boosters.cpp" />
+		<Unit filename="boosters.h" />
+		<Unit filename="debug.h" />
+		<Unit filename="events.cpp" />
+		<Unit filename="events.h" />
+		<Unit filename="font.cpp" />
+		<Unit filename="font.h" />
+		<Unit filename="game.cpp" />
+		<Unit filename="game.h" />
+		<Unit filename="globals.cpp" />
+		<Unit filename="globals.h" />
+		<Unit filename="graphics.cpp" />
+		<Unit filename="graphics.h" />
 		<Unit filename="main.cpp" />
+		<Unit filename="textures.cpp" />
+		<Unit filename="textures.h" />
 		<Extensions>
 			<lib_finder disable_auto="1" />
 		</Extensions>
