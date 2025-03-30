@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1743338197 source:c:\users\tgpm\documents\ltnc\game\2048\main.cpp
+1743343149 source:c:\users\tgpm\documents\ltnc\game\2048\main.cpp
 	<SDL.h>
 	<SDL_ttf.h>
 	<SDL_image.h>
@@ -14,7 +14,7 @@
 	"globals.h"
 	"textures.h"
 
-1743336695 source:c:\users\tgpm\documents\ltnc\game\2048\audio.cpp
+1743343190 source:c:\users\tgpm\documents\ltnc\game\2048\audio.cpp
 	"globals.h"
 	"audio.h"
 	"boosters.h"
@@ -24,7 +24,7 @@
 1743160269 c:\users\tgpm\documents\ltnc\game\2048\audio.h
 	<SDL_mixer.h>
 
-1743338197 source:c:\users\tgpm\documents\ltnc\game\2048\globals.cpp
+1743345652 source:c:\users\tgpm\documents\ltnc\game\2048\globals.cpp
 	"globals.h"
 
 1743338216 c:\users\tgpm\documents\ltnc\game\2048\globals.h
@@ -33,7 +33,7 @@
 	<SDL_ttf.h>
 	<map>
 
-1743340326 source:c:\users\tgpm\documents\ltnc\game\2048\events.cpp
+1743342430 source:c:\users\tgpm\documents\ltnc\game\2048\events.cpp
 	"boosters.h"
 	"globals.h"
 	"events.h"
@@ -58,7 +58,7 @@
 	<string>
 	<map>
 
-1743253560 source:c:\users\tgpm\documents\ltnc\game\2048\textures.cpp
+1743342783 source:c:\users\tgpm\documents\ltnc\game\2048\textures.cpp
 	"textures.h"
 	"globals.h"
 	<SDL_image.h>
@@ -66,7 +66,7 @@
 	<string>
 	<map>
 
-1743340767 source:c:\users\tgpm\documents\ltnc\game\2048\game.cpp
+1743345087 source:c:\users\tgpm\documents\ltnc\game\2048\game.cpp
 	"game.h"
 	"globals.h"
 	"audio.h"
@@ -77,7 +77,7 @@
 	<ctime>
 	<map>
 
-1743334316 source:c:\users\tgpm\documents\ltnc\game\2048\graphics.cpp
+1743345337 source:c:\users\tgpm\documents\ltnc\game\2048\graphics.cpp
 	"boosters.h"
 	"graphics.h"
 	"globals.h"
@@ -95,7 +95,7 @@
 	<sstream>
 	<iomanip>
 
-1743239687 source:c:\users\tgpm\documents\ltnc\game\2048\font.cpp
+1743342783 source:c:\users\tgpm\documents\ltnc\game\2048\font.cpp
 	"globals.h"
 	"font.h"
 	<iostream>
@@ -110,7 +110,7 @@
 	<SDL_mixer.h>
 	<string>
 
-1743340562 source:c:\users\tgpm\documents\ltnc\game\2048\boosters.cpp
+1743343303 source:c:\users\tgpm\documents\ltnc\game\2048\boosters.cpp
 	"boosters.h"
 	"globals.h"
 	"game.h"
@@ -126,4 +126,37 @@
 	<iostream>
 	<direct.h>
 	<limits>
+
+1743160269 c:\users\tgpm\documents\ltnc\game\2048\include\audio.h
+	<SDL_mixer.h>
+
+1743337875 c:\users\tgpm\documents\ltnc\game\2048\include\boosters.h
+	<SDL.h>
+	<SDL_ttf.h>
+	<SDL_mixer.h>
+	<string>
+
+1743157854 c:\users\tgpm\documents\ltnc\game\2048\include\events.h
+	<SDL.h>
+
+1743154807 c:\users\tgpm\documents\ltnc\game\2048\include\font.h
+	<SDL_ttf.h>
+
+1743312014 c:\users\tgpm\documents\ltnc\game\2048\include\game.h
+	<SDL.h>
+
+1743232884 c:\users\tgpm\documents\ltnc\game\2048\include\graphics.h
+	<SDL.h>
+	<SDL_ttf.h>
+
+1743338216 c:\users\tgpm\documents\ltnc\game\2048\include\globals.h
+	<SDL.h>
+	<SDL_mixer.h>
+	<SDL_ttf.h>
+	<map>
+
+1743154807 c:\users\tgpm\documents\ltnc\game\2048\include\textures.h
+	<SDL.h>
+	<string>
+	<map>
 

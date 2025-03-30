@@ -19,43 +19,40 @@ bool tsunamiActive = false;
 Uint32 freezeStartTime = 0;
 
 // Global booster button definitions.
-BoosterButton hammerButton = { BOOSTER_HAMMER, 0, nullptr, nullptr };
-BoosterButton freezeButton = { BOOSTER_FREEZE, 0, nullptr, nullptr };
-BoosterButton tsunamiButton = { BOOSTER_TSUNAMI, 0, nullptr, nullptr };
+BoosterButton hammerButton = { BOOSTER_HAMMER, 300, nullptr, nullptr };
+BoosterButton freezeButton = { BOOSTER_FREEZE, 1500, nullptr, nullptr };
+BoosterButton tsunamiButton = { BOOSTER_TSUNAMI, 3000, nullptr, nullptr };
 BoosterType currentBoosterType = BOOSTER_HAMMER;
 
 bool loadBoosterTextures(SDL_Renderer* renderer)
 {
-    SDL_Surface* hammerbuttonSurface = IMG_Load("backgrounds and textures/hammerbutton.png");
+    SDL_Surface* hammerbuttonSurface = IMG_Load("assets/backgrounds and textures/hammerbutton.png");
     if (!hammerbuttonSurface){
         std::cerr << "Failed to load hammer button surface: " << IMG_GetError() << "\n";
     }
     else{
-        std::cerr << "Load hammer button surface successful" << "\n";
         hammerButton.iconTexture = SDL_CreateTextureFromSurface(renderer, hammerbuttonSurface);
         if (!hammerButton.iconTexture){
             std::cerr << "Failed to load hammer button texture" << IMG_GetError() << "\n";
         }
         SDL_FreeSurface(hammerbuttonSurface);
     }
-    SDL_Surface* freezebuttonSurface = IMG_Load("backgrounds and textures/freezebutton.png");
+    SDL_Surface* freezebuttonSurface = IMG_Load("assets/backgrounds and textures/freezebutton.png");
     if (!freezebuttonSurface){
         std::cerr << "Failed to load freeze button surface: " << IMG_GetError() << "\n";
     }
     else{
-        std::cerr << "Load freeze button surface successful" << "\n";
         freezeButton.iconTexture = SDL_CreateTextureFromSurface(renderer, freezebuttonSurface);
         if (!freezeButton.iconTexture){
             std::cerr << "Failed to load freeze button texture" << IMG_GetError() << "\n";
         }
         SDL_FreeSurface(freezebuttonSurface);
     }
-    SDL_Surface* tsunamibuttonSurface = IMG_Load("backgrounds and textures/tsunamibutton.png");
+    SDL_Surface* tsunamibuttonSurface = IMG_Load("assets/backgrounds and textures/tsunamibutton.png");
     if (!tsunamibuttonSurface){
         std::cerr << "Failed to load tsunami button surface: " << IMG_GetError() << "\n";
     }
     else{
-        std::cerr << "Load tsunami button surface successful" << "\n";
         tsunamiButton.iconTexture = SDL_CreateTextureFromSurface(renderer, tsunamibuttonSurface);
         if (!tsunamiButton.iconTexture){
             std::cerr << "Failed to load tsunami button texture" << IMG_GetError() << "\n";
@@ -108,7 +105,7 @@ SDL_Cursor* setBoosterCursor(SDL_Renderer* renderer, BoosterButton button)
 {
     std::string cursorPath;
     if (button.type == BOOSTER_HAMMER) {
-        cursorPath = "backgrounds and textures/hammercursor.png";
+        cursorPath = "assets/backgrounds and textures/hammercursor.png";
     }
     SDL_Surface* cursorSurface = IMG_Load(cursorPath.c_str());
     if (!cursorSurface) {

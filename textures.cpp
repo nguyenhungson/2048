@@ -7,51 +7,51 @@
 
 bool loadAllTextures(SDL_Renderer* renderer)
 {
-    SDL_Surface* startSurface = IMG_Load("backgrounds and textures/startbg.png");
+    SDL_Surface* startSurface = IMG_Load("assets/backgrounds and textures/startbg.png");
     if (!startSurface)
         std::cerr << "Failed to load start PNG file: " << IMG_GetError() << "\n";
 
-    SDL_Surface* sidebarSurface = IMG_Load("backgrounds and textures/sidebar.png");
+    SDL_Surface* sidebarSurface = IMG_Load("assets/backgrounds and textures/sidebar.png");
     if (!sidebarSurface){
         std::cerr << "Failed to load sidebar PNG file: " << IMG_GetError() << "\n";
     }
-    SDL_Surface* scoreSurface = IMG_Load("backgrounds and textures/cloud.png");
+    SDL_Surface* scoreSurface = IMG_Load("assets/backgrounds and textures/cloud.png");
     if (!scoreSurface)
         std::cerr << "Failed to load score PNG file: " << IMG_GetError() << "\n";
 
-    SDL_Surface* cloudSurface = IMG_Load("backgrounds and textures/cloud.png");
+    SDL_Surface* cloudSurface = IMG_Load("assets/backgrounds and textures/cloud.png");
     if (!cloudSurface)
         std::cerr << "Failed to load cloud PNG file: " << IMG_GetError() << "\n";
 
-    SDL_Surface* blockerSurface = IMG_Load("backgrounds and textures/blocker.png");
+    SDL_Surface* blockerSurface = IMG_Load("assets/backgrounds and textures/blocker.png");
     if (!blockerSurface)
         std::cerr << "Failed to load blocker image: " << IMG_GetError() << "\n";
 
-    SDL_Surface* musicbarSurface = IMG_Load("backgrounds and textures/musicbar.png");
+    SDL_Surface* musicbarSurface = IMG_Load("assets/backgrounds and textures/musicbar.png");
     if (!musicbarSurface)
         std::cerr << "Failed to load music bar PNG file: " << IMG_GetError() << "\n";
 
-    SDL_Surface* musictoggleSurface = IMG_Load("backgrounds and textures/appletoggle.png");
+    SDL_Surface* musictoggleSurface = IMG_Load("assets/backgrounds and textures/appletoggle.png");
     if (!musictoggleSurface)
         std::cerr << "Failed to load music toggle PNG file: " << IMG_GetError() << "\n";
 
-    recordBackground = IMG_LoadTexture(renderer, "backgrounds and textures/newrec.jpg");
+    recordBackground = IMG_LoadTexture(renderer, "assets/backgrounds and textures/newrec.jpg");
     if (!recordBackground)
         std::cerr << "Failed to load record background: " << IMG_GetError() << "\n";
 
-    gridBackground = IMG_LoadTexture(renderer, "backgrounds and textures/gamegridbg.jpg");
+    gridBackground = IMG_LoadTexture(renderer, "assets/backgrounds and textures/gamegridbg.jpg");
     if (!gridBackground)
         std::cerr << "Failed to load grid background: " << IMG_GetError() << "\n";
 
-    optionBackground = IMG_LoadTexture(renderer, "backgrounds and textures/optionsbg.jpg");
+    optionBackground = IMG_LoadTexture(renderer, "assets/backgrounds and textures/optionsbg.jpg");
     if (!optionBackground)
         std::cerr << "Failed to load option background: " << IMG_GetError() << "\n";
 
-    gameoverBackground = IMG_LoadTexture(renderer, "backgrounds and textures/optionsbg.jpg");
+    gameoverBackground = IMG_LoadTexture(renderer, "assets/backgrounds and textures/optionsbg.jpg");
     if (!gameoverBackground)
         std::cerr << "Failed to load game over background: " << IMG_GetError() << "\n";
 
-    gamewonBackground = IMG_LoadTexture(renderer, "backgrounds and textures/optionsbg.jpg");
+    gamewonBackground = IMG_LoadTexture(renderer, "assets/backgrounds and textures/optionsbg.jpg");
     if (!gamewonBackground)
         std::cerr << "Failed to load game won background: " << IMG_GetError() << "\n";
 
@@ -96,7 +96,7 @@ bool loadAllTextures(SDL_Renderer* renderer)
     int fruitValues[] = {2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048};
 
     for (int i = 0; i < 11; i++) {
-        std::string path = "Fruit/" + fruitNames[i] + ".jpg";
+        std::string path = "assets/Fruit/" + fruitNames[i] + ".jpg";
         SDL_Surface* surf = IMG_Load(path.c_str());
         if (!surf) {
             std::cerr << "Failed to load " << path << ": " << IMG_GetError() << "\n";
@@ -107,7 +107,7 @@ bool loadAllTextures(SDL_Renderer* renderer)
     }
 
     for (int i = 0; i < 5; i++){
-        std::string path = "backgrounds and textures/gameover/gameoverbg" + std::to_string(i+1) + ".png";
+        std::string path = "assets/backgrounds and textures/gameover/gameoverbg" + std::to_string(i+1) + ".png";
         SDL_Surface* surf = IMG_Load(path.c_str());
         if (!surf){
             std::cerr << "Failed to load " << path << ": " << IMG_GetError() << "\n";
@@ -118,7 +118,7 @@ bool loadAllTextures(SDL_Renderer* renderer)
     }
 
     for (int i = 0; i < 5; i++){
-        std::string path = "backgrounds and textures/gamewin/winbg" + std::to_string(i+1) + ".png";
+        std::string path = "assets/backgrounds and textures/gamewin/winbg" + std::to_string(i+1) + ".png";
         SDL_Surface* surf = IMG_Load(path.c_str());
         if (!surf){
             std::cerr << "Failed to load " << path << ": " << IMG_GetError() << "\n";

@@ -19,7 +19,7 @@ void add_random_tile() {
     if (empty_cells == 0)
         return;
     int target = rand() % empty_cells;
-    int value = (rand() % 10 == 0) ? 4 : 2048;
+    int value = (rand() % 10 == 0) ? 4 : 2;
     for (int i = 0; i < GRID_SIZE; i++) {
         for (int j = 0; j < GRID_SIZE; j++) {
             if (grid[i][j] == 0 && target-- == 0) {
@@ -45,7 +45,7 @@ void add_random_blocker() {
     if (freezeActive){
         emptyCells = 1e7;
     }
-    int target = rand() % emptyCells;
+    int target = rand() % (emptyCells);
     for (int i = 0; i < GRID_SIZE; i++) {
         for (int j = 0; j < GRID_SIZE; j++) {
             if (grid[i][j] == 0 && target-- == 0) {
@@ -59,7 +59,7 @@ void add_random_blocker() {
 
 void loadHighscore()
 {
-    std::ifstream infile("text/highscore.txt");
+    std::ifstream infile("assets/text/highscore.txt");
     if (infile.is_open()) {
         infile >> highscore;
     }
@@ -67,7 +67,7 @@ void loadHighscore()
 
 void saveHighscore()
 {
-    std::ofstream outfile("text/highscore.txt");
+    std::ofstream outfile("assets/text/highscore.txt");
     if (outfile.is_open()) {
         outfile << highscore;
     }

@@ -7,22 +7,22 @@
 bool initAudio()
 {
     // Boosters SFX
-    hammerSound = Mix_LoadWAV("music and sfx/thorhammer.wav");
+    hammerSound = Mix_LoadWAV("assets/music and sfx/thorhammer.wav");
     if (!hammerSound){
         std::cerr << "Failed to load hammer sound: " << Mix_GetError() << "\n";
     }
 
-    freezeSound = Mix_LoadWAV("music and sfx/freeze.wav");
+    freezeSound = Mix_LoadWAV("assets/music and sfx/freeze.wav");
     if (!freezeSound){
         std::cerr << "Failed to load freeze sound: " << Mix_GetError() << "\n";
     }
 
-    tsunamiSound = Mix_LoadWAV("music and sfx/tsunami.wav");
+    tsunamiSound = Mix_LoadWAV("assets/music and sfx/tsunami.wav");
     if (!tsunamiSound){
         std::cerr << "Failed to load tsunami sound: " << Mix_GetError() << "\n";
     }
 
-    bgMusic = Mix_LoadMUS("music and sfx/linga guli guli.mp3");
+    bgMusic = Mix_LoadMUS("assets/music and sfx/linga guli guli.mp3");
     if (!bgMusic) {
         std::cerr << "Failed to load bgMusic: " << Mix_GetError() << "\n";
         return false;
@@ -30,19 +30,19 @@ bool initAudio()
     else{
         MusicFinishedCallback();
     }
-    gameWinMusic = Mix_LoadMUS("music and sfx/congratulation.mp3");
+    gameWinMusic = Mix_LoadMUS("assets/music and sfx/congratulation.mp3");
     if (!gameWinMusic) {
         std::cerr << "Failed to load gameWinMusic: " << Mix_GetError() << "\n";
     }
-    congratsMusic = Mix_LoadMUS("music and sfx/newrec.mp3");
+    congratsMusic = Mix_LoadMUS("assets/music and sfx/newrec.mp3");
     if (!congratsMusic) {
         std::cerr << "Failed to load congratsMusic: " << Mix_GetError() << "\n";
     }
-    swipeSound = Mix_LoadWAV("music and sfx/switch.wav");
+    swipeSound = Mix_LoadWAV("assets/music and sfx/switch.wav");
     if (!swipeSound) {
         std::cerr << "Failed to load swipeSound: " << Mix_GetError() << "\n";
     }
-    gameOverSound = Mix_LoadWAV("music and sfx/gameover.wav");
+    gameOverSound = Mix_LoadWAV("assets/music and sfx/gameover.wav");
     if (!gameOverSound) {
         std::cerr << "Failed to load gameOverSound: " << Mix_GetError() << "\n";
     }

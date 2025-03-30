@@ -4,23 +4,23 @@
 #include <SDL_ttf.h>
 
 bool initFont(){
-    titleFont   = TTF_OpenFont("Font/doodle.ttf", 72);
+    titleFont   = TTF_OpenFont("assets/Font/doodle.ttf", 72);
     if (!titleFont){
         std::cerr << "Failed to load title font: " << TTF_GetError() << "\n";
     }
-    smallFont   = TTF_OpenFont("Font/doodle.ttf", 42);
+    smallFont   = TTF_OpenFont("assets/Font/doodle.ttf", 42);
     if (!smallFont){
         std::cerr << "Failed to load small font: " << TTF_GetError() << "\n";
     }
-    buttonFont  = TTF_OpenFont("Font/doodle.ttf", 36);
+    buttonFont  = TTF_OpenFont("assets/Font/doodle.ttf", 36);
     if (!buttonFont){
         std::cerr << "Failed to load button font: " << TTF_GetError() << "\n";
     }
-    boosterFont  = TTF_OpenFont("Font/doodle.ttf", 28);
+    boosterFont  = TTF_OpenFont("assets/Font/doodle.ttf", 28);
     if (!boosterFont){
         std::cerr << "Failed to load booster font: " << TTF_GetError() << "\n";
     }
-    valueFont  = TTF_OpenFont("Font/doodle.ttf", 20);
+    valueFont  = TTF_OpenFont("assets/Font/doodle.ttf", 20);
     if (!valueFont){
         std::cerr << "Failed to load value font: " << TTF_GetError() << "\n";
     }

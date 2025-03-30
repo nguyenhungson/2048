@@ -186,39 +186,40 @@ void draw_sidebar(SDL_Renderer* renderer, TTF_Font* valueFont, TTF_Font* smallFo
         }
     }
     if (boosterActive) {
-    // Calculate remaining time in the booster period.
     Uint32 elapsed = SDL_GetTicks() - boosterStartTime;
     Uint32 remaining = (elapsed < BOOSTER_DURATION) ? (BOOSTER_DURATION - elapsed) : 0;
-    // Calculate the width of the booster bar.
-    int fullBarWidth = 300;  // full width of the bar in pixels
+    int fullBarWidth = 300;
     int currentBarWidth = static_cast<int>((remaining / (float)BOOSTER_DURATION) * fullBarWidth);
 
-    // Define the booster bar rectangle.
     SDL_Rect boosterBarRect = {
-        GAME_AREA_WIDTH + (SIDEBAR_WIDTH - fullBarWidth) / 2, // center horizontally in sidebar
-        400,    // vertical position (adjust as needed)
+        GAME_AREA_WIDTH + (SIDEBAR_WIDTH - fullBarWidth) / 2,
+        400,
         currentBarWidth,
-        30      // height of the bar
+        30
     };
-    // Draw the filled part of the booster bar.
+
     SDL_SetRenderDrawColor(renderer, 0, 225, 0, 255);
     SDL_RenderFillRect(renderer, &boosterBarRect);
-    // Draw the border of the booster bar.
+
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderDrawRect(renderer, &boosterBarRect);
 
     double secondsRemaining = remaining / 1000.0;
 
     std::ostringstream oss;
-    oss << std::fixed << std::setprecision(3) << secondsRemaining;
+    oss << std::fixed << std::setprecision(2) << secondsRemaining;
     std::string timeStr = oss.str();
 
-    std::string boosterLabel = "Booster Active! x" + std::to_string(currentBooster.multiplier) +
+    double multiplier = float(currentBooster.multiplier)/100.0;
+    std::ostringstream osss;
+    osss << std::fixed << std::setprecision(1) << multiplier;
+    std::string multStr = osss.str();
+
+    std::string boosterLabel = "Booster Active! x" + multStr +
                                " (" + timeStr + "s)";
     SDL_Surface* boosterLabelSurf = TTF_RenderText_Solid(boosterFont, boosterLabel.c_str(), textColor);
     if (boosterLabelSurf) {
         SDL_Texture* boosterLabelTex = SDL_CreateTextureFromSurface(renderer, boosterLabelSurf);
-        // Center the booster label above the booster bar.
         SDL_Rect boosterLabelRect = {
             GAME_AREA_WIDTH + (SIDEBAR_WIDTH - boosterLabelSurf->w) / 2,
             boosterBarRect.y - boosterLabelSurf->h - 5,
@@ -235,7 +236,7 @@ void draw_sidebar(SDL_Renderer* renderer, TTF_Font* valueFont, TTF_Font* smallFo
         congratsRect.w = 250;
         congratsRect.h = 150;
         congratsRect.x = GAME_AREA_WIDTH + (SIDEBAR_WIDTH - congratsRect.w) / 2;
-        congratsRect.y = WINDOW_HEIGHT - 200;
+        congratsRect.y = WINDOW_HEIGHT - 260;
         SDL_RenderCopy(renderer, recordBackground, nullptr, &congratsRect);
 
         std::string congratsMsg = "Congratulations!\nNew Record!";
@@ -305,15 +306,15 @@ void draw_help_screen(SDL_Renderer* renderer, TTF_Font* titleFont, TTF_Font* sma
     lines.push_back({ "* Fruit to Points:", smallFont });
     lines.push_back({ "- Apple: 2 points", smallFont });
     lines.push_back({ "- Banana: 4 points", smallFont });
-    lines.push_back({ "- Grape: 8 points", smallFont });
-    lines.push_back({ "- Mango: 16 points", smallFont });
-    lines.push_back({ "- Orange: 32 points", smallFont });
-    lines.push_back({ "- Peach: 64 points", smallFont });
-    lines.push_back({ "- Pineapple: 128 points", smallFont });
-    lines.push_back({ "- Watermelon: 256 points", smallFont });
-    lines.push_back({ "- Strawberry: 512 points", smallFont });
-    lines.push_back({ "- Cherry: 1024 points", smallFont });
-    lines.push_back({ "- Coconut: 2048 points", smallFont });
+    lines.push_back({ "- Dragonfruit: 8 points", smallFont });
+    lines.push_back({ "- Grape: 16 points", smallFont });
+    lines.push_back({ "- Mango: 32 points", smallFont });
+    lines.push_back({ "- Orange: 64 points", smallFont });
+    lines.push_back({ "- Peach: 128 points", smallFont });
+    lines.push_back({ "- Pineapple: 256 points", smallFont });
+    lines.push_back({ "- Pomegranate: 512 points", smallFont });
+    lines.push_back({ "- Strawberry: 1024 points", smallFont });
+    lines.push_back({ "- Watermelon: 2048 points", smallFont });
     lines.push_back({ "", smallFont });
 
     int totalHeight = 0;
@@ -365,7 +366,7 @@ void draw_credits_screen(SDL_Renderer* renderer,
         SDL_DestroyTexture(titleTexture);
     }
 
-    std::string creditsText = "Developed by MVPSON98 HARDSTUCK SILVER\n\n\nPROPS TO DATSKII FOR THE LOVELY ARTWORK";
+    std::string creditsText = "Developed by NGUYEN HUNG SON\n\n\nPROPS TO DATSKII FOR THE LOVELY ARTWORK";
     std::istringstream iss(creditsText);
     std::vector<std::string> lines;
     std::string line;
